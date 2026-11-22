@@ -40,6 +40,8 @@
     return res;
   }
   const isMate = (b, c) => legal(b, c).length === 0 && inCheck(b, c);
+  /* cheia poziției pentru regula repetării de 3 ori: așezarea pieselor + cine e la mutare */
+  const posKey = (b, side) => b.map(p => p ? p.c + p.t : ".").join("") + side;
 
   /* „cușca” regelui: câmpurile la care ajunge fără să treacă prin câmpuri atacate */
   function cage(b, D) {
@@ -111,7 +113,7 @@
     return best;
   }
 
-  const api = {MODES, F, R, opp, cheb, attacksFrom, attacked, kingSq, inCheck, applyM, legal, isMate, cage, hanging, mulberry32, genPosition, defenderMove,
+  const api = {MODES, F, R, opp, cheb, attacksFrom, attacked, kingSq, inCheck, applyM, legal, isMate, posKey, cage, hanging, mulberry32, genPosition, defenderMove,
     modeById: id => MODES.find(m => m.id === id)};
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.Sah = api;
 })(this);

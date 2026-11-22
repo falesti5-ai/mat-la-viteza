@@ -55,7 +55,52 @@
   /* ---------- navigare ---------- */
   function renderNav(active) {
     const items = [["start", "🎯 Joacă"], ["lb", "🏆 Clasament"]].concat(MOD === "cerc" ? [["contest", "🏁 Întrecere"]] : []);
-    $("#nav").innerHTML = items.map(([id, t]) => `<button data-nav="${id}" class="${id === active ? "on" : ""}">${t}</button>`).join("");
+    $("#nav").innerHTML = items.map(([id, t]) => `<button data-nav="${id}" class="${id === active ? "on" : ""}">${t}</button>`).join("")
+      + `<button data-guide="1" class="ghost">📜 Reguli</button>` + (MOD === "cerc" ? `<button data-qr="1" class="ghost">📱 Acasă</button>` : "");
+  }
+  /* ---------- ghidul cu regulile și codul QR ---------- */
+  function guideHTML() {
+    const L = id => modeById(id).label, s = ms => ms / 1000 + " s";
+    const game = `<h3>♟️ Cum se joacă</h3><ul>
+      <li>Copilul dă mat regelui advers cu piesele alese prin bife: ${MODES.map(m => m.label).join(", ")}.</li>
+      <li>Poziția e nouă la fiecare încercare, iar culoarea pieselor se schimbă la întâmplare. Calculatorul apără regele.</li>
+      <li>Contează <b>timpul</b>; mutările se numără și se afișează.</li>
+      <li>Încercarea se termină fără mat la: <b>pat</b> (remiză), <b>piesa grea pierdută</b>, <b>aceeași poziție repetată de 3 ori</b> (remiză), <b>50 de mutări</b> fără mat sau <b>renunțare</b>.</li>
+      <li><b>💡 Cu indicii:</b> se văd „cușca” regelui, piesa în pericol, mutările posibile și avertismentul de repetare.
+        <b>Fără indicii</b> nu se arată nici mutările posibile.</li></ul>`;
+    if (MOD !== "cerc") return `<div class="guide">${game}</div>`;
+    return `<div class="guide">${game}
+      <h3>⭐ Stelele (doar pentru matul fără indicii și doar pentru copiii din Liga Stelelor)</h3>
+      <table><tr><th>Pentru ce</th><th>Stele</th><th>Cât de des</th></tr>
+        <tr><td>🏁 Întrecere: locul 1 / 2 / 3</td><td><b>3 / 2 / 1</b></td><td>la fiecare întrecere</td></tr>
+        <tr><td>🥇 Primul mat la un tip de mat</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
+        <tr><td>👑 Record nou al grupei la un tip</td><td><b>+1</b></td><td>de fiecare dată</td></tr>
+        <tr><td>🎓 Primul mat fără indicii, după ce a exersat cu indicii</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
+        <tr><td>🔥 Serie de 5 maturi la rând (fără pat, remiză, piesă pierdută sau renunțare)</td><td><b>+1</b></td><td>la fiecare 5</td></tr>
+        <tr><td>⚡ Fulger: ${L("KQ")} &lt; ${s(Reguli.PRAG.KQ)} · ${L("KQR")} &lt; ${s(Reguli.PRAG.KQR)} · ${L("KRR")} &lt; ${s(Reguli.PRAG.KRR)} · ${L("KR")} &lt; ${s(Reguli.PRAG.KR)}</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
+        <tr><td>📈 Cel mai mare progres al săptămânii (Clasament → butonul „+1”)</td><td><b>+1</b></td><td>o dată pe săptămână, pe grupă</td></tr></table>
+      <p class="note">Stelele intră singure în Liga Stelelor, cu motivul „⏱️ Mat la viteză – întrecere” sau „♜ Mat la viteză – realizare” și o notiță (de exemplu „Fulger – Rege + Damă, 0:17.4”).
+        Încercările cu indicii apar în clasament cu 💡, dar nu primesc stele. Copiii scriși de mână nu primesc stele.</p>
+      <h3>🏁 Întrecerea de duminică</h3><ol>
+        <li>„🏁 Întrecere” → alegeți grupa și tipul de mat → „Începe întrecerea”.</li>
+        <li>Toți copiii primesc <b>aceleași 3 poziții</b>; calculatorul se apără la fel pentru toți; indiciile sunt oprite.</li>
+        <li>Timpul copilului = suma celor 3 poziții. Pat, remiză, piesă pierdută sau renunțare = încercarea nu se clasează.</li>
+        <li>Un copil poate încerca din nou dacă permiteți; contează cel mai bun total.</li>
+        <li>„⭐ Încheie întrecerea” → podium și 3 – 2 – 1 stele în Ligă.</li></ol>
+      <div class="f5box">⚠️ <b>Atenție la F5 înainte să dați stele de mână!</b><br>
+        Dacă Liga Stelelor era deschisă în alt tab în timp ce Mat la viteză a dat stele, apăsați întâi <b>F5</b> în tabul Ligii (o reîncărcați).
+        Altfel Liga își salvează datele vechi peste cele noi și <b>stelele date de Mat la viteză se pierd</b>.
+        Cel mai sigur: închideți Liga cât timp copiii joacă și deschideți-o după aceea.</div>
+      <h3>📱 Pentru acasă</h3><p class="note">Copiii se antrenează pe telefon la <b>${esc(window.QR_URL || "")}</b> (fără stele). Butonul „📱 Acasă” arată codul QR mare, de proiectat.</p></div>`;
+  }
+  function openGuide() {
+    modal(`<div class="res wide guideres"><h1 style="color:var(--accent)">📜 Reguli</h1>${guideHTML()}<div class="btns"><button class="pri" data-act="close">Am înțeles</button></div></div>`);
+  }
+  function openQR() {
+    modal(`<div class="res qrres"><h1 style="color:var(--accent)">📱 Antrenează-te acasă!</h1>
+      <p>Deschide camera telefonului și îndreapt-o spre cod.<br>Atinge linkul care apare.</p>
+      <div class="qr">${window.QR_SVG || ""}</div><p class="qrurl">${esc(window.QR_URL || "")}</p>
+      <div class="btns"><button class="pri" data-act="close">Gata</button></div></div>`);
   }
   function show(id) {
     if (id !== "game" && G && !G.over) { G.over = true; cancelAnimationFrame(timerRaf); }
@@ -68,7 +113,13 @@
     if (id === "contest") renderContest();
     scrollTo(0, 0);
   }
-  $("#nav").addEventListener("click", e => { const b = e.target.closest("[data-nav]"); if (b) show(b.dataset.nav); });
+  $("#nav").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.guide) return openGuide();
+    if (b.dataset.qr) return openQR();
+    if (b.dataset.nav) show(b.dataset.nav);
+  });
+  document.querySelector(".logo").addEventListener("click", openGuide);
 
   /* ---------- start ---------- */
   function kidCard(s, on, extra = "") {
@@ -136,7 +187,8 @@
   }
   function beginBoard(o) {
     stopConfetti(); document.querySelectorAll(".modal").forEach(m => m.remove());
-    G = Object.assign(o, {D: opp(o.A), moves: 0, sel: null, last: null, over: true, busy: false, t0: 0, hintsUsed: o.kind === "antrenament" && ui.hints});
+    G = Object.assign(o, {D: opp(o.A), moves: 0, sel: null, last: null, over: true, busy: false, t0: 0, hintsUsed: o.kind === "antrenament" && ui.hints, seen: new Map()});
+    notePos(G.b, G.A);
     show("game");
     const p = G.player || ui.player, m = G.mode;
     const steps = G.kind === "intrecere"
@@ -175,6 +227,9 @@
     };
     G.cd = cd; step();
   }
+  /* regula repetării: aceeași poziție (cu același jucător la mutare) de 3 ori = remiză */
+  function notePos(b, side) { const k = Sah.posKey(b, side); G.seen.set(k, (G.seen.get(k) || 0) + 1); return G.seen.get(k); }
+  const seenCount = (b, side) => G.seen.get(Sah.posKey(b, side)) || 0;
   function tick() { if (!G || G.over) return; $("#timer").textContent = fmt(performance.now() - G.t0); timerRaf = requestAnimationFrame(tick); }
   const disp = s => G.A === "w" ? [F(s), 7 - R(s)] : [7 - F(s), R(s)];
   function buildBoard() {
@@ -190,14 +245,20 @@
   }
   function render() {
     const bd = $("#board"), b = G.b;
-    const targets = G.sel != null ? legal(b, G.A).filter(m => m.from === G.sel) : [];
-    const cg = hintsOn() && !G.over ? cage(b, G.D) : new Set();
-    const hang = hintsOn() && !G.over ? hanging(b, G.A) : [];
+    const hints = hintsOn() && !G.over;
+    // fără indicii nu se arată mutările posibile
+    const targets = hints && G.sel != null ? legal(b, G.A).filter(m => m.from === G.sel) : [];
+    const cg = hints ? cage(b, G.D) : new Set();
+    const hang = hints ? hanging(b, G.A) : [];
+    // mutările care ar repeta a treia oară o poziție (remiză)
+    const repMove = m => seenCount(applyM(b, m), G.D) >= 2;
+    const repNow = hints && (seenCount(b, G.A) >= 2 || legal(b, G.A).some(repMove));
     bd.querySelectorAll(".sq").forEach(el => {
       const s = +el.dataset.s, t = targets.find(m => m.to === s);
       el.classList.toggle("sel", s === G.sel);
       el.classList.toggle("tgt", !!t);
       el.classList.toggle("capt", !!(t && t.cap));
+      el.classList.toggle("rep", !!(t && repMove(t)));
       el.classList.toggle("last", !!G.last && (G.last.from === s || G.last.to === s));
       el.classList.toggle("cage", cg.has(s) && !b[s]);
     });
@@ -214,10 +275,13 @@
     bd.querySelectorAll(".pc").forEach(el => { if (!alive.has(el.dataset.id) && !el.classList.contains("boom")) el.remove(); });
     $("#mv").textContent = G.moves;
     const hb = $("#hint");
-    if (hintsOn() && !G.over) {
+    if (hints) {
       hb.classList.add("on");
       hb.innerHTML = `Cușca regelui: <span class="big">${cg.size}</span> câmpuri.<br>Micșoreaz-o pas cu pas!`
-        + (hang.length ? `<br><span style="color:var(--bad)">⚠️ Atenție! ${NAME[b[hang[0]].t]} poate fi luat de rege!</span>` : "");
+        + (hang.length ? `<br><span style="color:var(--bad)">⚠️ Atenție! ${NAME[b[hang[0]].t]} poate fi luat de rege!</span>` : "")
+        + (repNow ? `<div class="repwarn">🔁 <b>Atenție, repetare!</b> Te învârți pe loc – aceeași poziție a apărut deja de 2 ori.
+            Dacă se repetă încă o dată, partida se termină <b>remiză</b> și jocul se oprește. Caută o mutare nouă!
+            <small>Mutările care repetă poziția au cercul portocaliu.</small></div>` : "");
     } else hb.classList.remove("on");
   }
   $("#game").addEventListener("click", e => {
@@ -231,9 +295,12 @@
     render();
   });
   function playerMove(m) {
-    G.b = applyM(G.b, m); G.moves++; G.last = m; G.sel = null; sfx.move(); render();
+    G.b = applyM(G.b, m); G.moves++; G.last = m; G.sel = null;
+    const rep = notePos(G.b, G.D);
+    sfx.move(); render();
     const dm = legal(G.b, G.D);
     if (dm.length === 0) return finish(inCheck(G.b, G.D) ? "mat" : "pat");
+    if (rep >= 3) return finish("repetare");
     if (inCheck(G.b, G.D)) sfx.check();
     if (G.moves >= 50) return finish("limita");
     G.busy = true;
@@ -244,8 +311,10 @@
       const capEl = d.cap ? $(`.pc[data-id="${d.cap.id}"]`) : null;
       G.b = applyM(G.b, d); G.last = d; G.busy = false;
       if (capEl) { capEl.classList.add("boom"); setTimeout(() => capEl.remove(), 950); }
+      const rep = notePos(G.b, G.A);
       sfx.move(); render();
       if (d.cap) finish("pierdut", d.cap);
+      else if (rep >= 3) finish("repetare");
     }, 450);
   }
 
@@ -262,7 +331,7 @@
     render();
     const bd = $("#board");
     if (result === "mat") { const k = $(`.pc[data-id="dk"]`); k && k.classList.add("mated"); sfx.mate(); confetti(G.kind === "intrecere" ? 90 : 160); }
-    if (result === "pat") { sfx.pat(); flash("grey"); bd.classList.add("pat", "shake"); }
+    if (result === "pat" || result === "repetare") { sfx.pat(); flash("grey"); bd.classList.add("pat", "shake"); }
     if (result === "pierdut") { sfx.boom(); flash("red"); bd.classList.add("shake"); }
     if (G.kind === "intrecere") return finishContestPosition(result, ms, cap);
 
@@ -309,6 +378,9 @@
     const html = result === "pat"
       ? `<div class="res pat"><div class="zzz">💤</div><div class="em">😮</div><h1>PAT!</h1>
          <p>Regele nu mai are mutări, dar nu este în șah.<br>Este remiză – matul s-a pierdut.<br><b>Lasă-i regelui un câmp liber!</b></p>${extra}${nums}${btns}</div>`
+      : result === "repetare"
+      ? `<div class="res pat"><div class="zzz">🔁</div><div class="em">🤝</div><h1>REMIZĂ!</h1>
+         <p>Aceeași poziție s-a repetat de 3 ori.<br>După regulile șahului, partida se termină remiză – matul s-a pierdut.<br><b>Nu te învârți pe loc: strânge cușca regelui!</b></p>${extra}${nums}${btns}</div>`
       : result === "pierdut"
       ? `<div class="res lost"><div class="em">💥</div><h1>Ai pierdut ${NAME[cap.t]}!</h1>
          <p>Regele a luat piesa neapărată.<br><b>Ține piesele departe de rege sau apără-le cu regele tău.</b></p>${extra}${nums}${btns}</div>`
