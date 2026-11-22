@@ -1,0 +1,4 @@
+# datele copiilor nu se publică
+*.json
+_*
+node_modules/
