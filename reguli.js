@@ -1,7 +1,11 @@
 /* Mat la viteză – clasamente și reguli pentru stele (fără DOM). */
 (function (root) {
   const Sah = typeof module !== "undefined" && module.exports ? require("./sah.js") : root.Sah;
-  const PRAG = {KQ: 20000, KQR: 10000, KRR: 15000, KR: 30000};
+  /* pragurile „Fulger” (ms). 23.11.2026: +5 s la cele 4 maturi cu piese grele. */
+  const PRAG = {KQ: 25000, KQR: 15000, KRR: 20000, KR: 35000, KQB: 20000, KQN: 20000, KRB: 30000, KRN: 30000, KBB: 60000};
+  const PRAG_V1 = {KQ: 20000, KQR: 10000, KRR: 15000, KR: 30000}; // pragurile vechi, pentru încercările de dinainte
+  /* a primit deja Fulger la încercarea a? (încercările noi au câmpul „fulger”; cele vechi se judecă după pragul vechi) */
+  const hadFulger = a => "fulger" in a ? a.fulger === true : clean(a) && a.ms < (PRAG_V1[a.mode] || 0);
   const CONTEST_STARS = [3, 2, 1];
   const label = id => (Sah.modeById(id) || {label: id}).label;
   const fmt = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${Math.floor(ms / 100) % 10}`;
@@ -29,11 +33,12 @@
   /* stelele pentru o încercare de antrenament; history = încercările anterioare */
   function starsForAttempt(att, history) {
     if (!clean(att) || !att.sid) return [];
-    const out = [], L = label(att.mode), give = note => out.push({sid: att.sid, value: 1, rid: "mlvR", note});
+    const out = [], L = label(att.mode), give = (note, value = 1, tip) => out.push({sid: att.sid, value, rid: "mlvR", note, tip});
+    const firstStars = (Sah.modeById(att.mode) || {stele: 1}).stele;
     const mine = history.filter(a => a.pid === att.pid);
     const mineMode = mine.filter(a => a.mode === att.mode);
     if (!mineMode.some(clean)) {
-      give(`Primul mat – ${L}`);
+      give(`Primul mat – ${L}`, firstStars);
       if (mineMode.some(a => a.ok && a.hints)) give(`Primul mat fără indicii – ${L}`);
     }
     const rec = best(history, a => clean(a) && a.mode === att.mode && a.group === att.group);
@@ -41,7 +46,7 @@
     let streak = 0;
     for (const a of [...mine, att].sort((x, y) => x.ts - y.ts).reverse()) { if (!clean(a)) break; streak++; }
     if (streak % 5 === 0) give(`Serie de 5 maturi – ${streak} la rând`);
-    if (att.ms < PRAG[att.mode] && !mineMode.some(a => clean(a) && a.ms < PRAG[att.mode])) give(`Fulger – ${L}, ${fmt(att.ms)}`);
+    if (att.ms < PRAG[att.mode] && !mineMode.some(hadFulger)) give(`Fulger – ${L}, ${fmt(att.ms)}`, 1, "fulger");
     return out;
   }
 

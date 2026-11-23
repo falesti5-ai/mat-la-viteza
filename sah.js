@@ -1,20 +1,28 @@
-/* Mat la viteză – logica de șah (doar regi, dame și turnuri). Tabla: 64 de câmpuri, a1 = 0, h8 = 63. */
+/* Mat la viteză – logica de șah (regi, dame, turnuri, nebuni și cai; fără pioni). Tabla: 64 de câmpuri, a1 = 0, h8 = 63. */
 (function (root) {
+  /* grp: grele / mixt (grea + ușoară) / usoare; stele = câte stele dă primul mat (după dificultate) */
   const MODES = [
-    {id: "KR",  label: "Rege + Turn",        ic: "♜",  pieces: ["R"],      minCage: 14},
-    {id: "KRR", label: "Rege + 2 Turnuri",   ic: "♜♜", pieces: ["R", "R"], minCage: 8},
-    {id: "KQ",  label: "Rege + Damă",        ic: "♛",  pieces: ["Q"],      minCage: 10},
-    {id: "KQR", label: "Rege + Damă + Turn", ic: "♛♜", pieces: ["Q", "R"], minCage: 6},
+    {id: "KR",  label: "Rege + Turn",         ic: "♜",  pieces: ["R"],      minCage: 14, grp: "grele",  stele: 1},
+    {id: "KRR", label: "Rege + 2 Turnuri",    ic: "♜♜", pieces: ["R", "R"], minCage: 8,  grp: "grele",  stele: 1},
+    {id: "KQ",  label: "Rege + Damă",         ic: "♛",  pieces: ["Q"],      minCage: 10, grp: "grele",  stele: 1},
+    {id: "KQR", label: "Rege + Damă + Turn",  ic: "♛♜", pieces: ["Q", "R"], minCage: 6,  grp: "grele",  stele: 1},
+    {id: "KQB", label: "Rege + Damă + Nebun", ic: "♛♝", pieces: ["Q", "B"], minCage: 8,  grp: "mixt",   stele: 1},
+    {id: "KQN", label: "Rege + Damă + Cal",   ic: "♛♞", pieces: ["Q", "N"], minCage: 8,  grp: "mixt",   stele: 1},
+    {id: "KRB", label: "Rege + Turn + Nebun", ic: "♜♝", pieces: ["R", "B"], minCage: 12, grp: "mixt",   stele: 2},
+    {id: "KRN", label: "Rege + Turn + Cal",   ic: "♜♞", pieces: ["R", "N"], minCage: 12, grp: "mixt",   stele: 2},
+    {id: "KBB", label: "Rege + 2 Nebuni",     ic: "♝♝", pieces: ["B", "B"], minCage: 14, grp: "usoare", stele: 2},
   ];
   const F = s => s & 7, R = s => s >> 3, onB = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
-  const KD = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]], RD = [[1,0],[-1,0],[0,1],[0,-1]];
+  const KD = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]], RD = [[1,0],[-1,0],[0,1],[0,-1]], BD = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  const ND = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+  const SLIDE = {Q: KD, R: RD, B: BD};
   const opp = c => c === "w" ? "b" : "w";
   const cheb = (a, b) => Math.max(Math.abs(F(a) - F(b)), Math.abs(R(a) - R(b)));
 
   function attacksFrom(b, s) {
     const p = b[s], out = [], f = F(s), r = R(s);
-    if (p.t === "K") { for (const [df, dr] of KD) if (onB(f + df, r + dr)) out.push((r + dr) * 8 + f + df); return out; }
-    for (const [df, dr] of (p.t === "R" ? RD : KD)) {
+    if (p.t === "K" || p.t === "N") { for (const [df, dr] of (p.t === "K" ? KD : ND)) if (onB(f + df, r + dr)) out.push((r + dr) * 8 + f + df); return out; }
+    for (const [df, dr] of SLIDE[p.t]) {
       let x = f + df, y = r + dr;
       while (onB(x, y)) { const t = y * 8 + x; out.push(t); if (b[t]) break; x += df; y += dr; }
     }
@@ -60,7 +68,7 @@
     }
     return seen;
   }
-  /* piesele grele ale atacantului atacate de regele advers și neapărate */
+  /* piesele atacantului atacate de regele advers și neapărate */
   function hanging(b, A) {
     const dk = kingSq(b, opp(A));
     return attacksFrom(b, dk).filter(s => b[s] && b[s].c === A && b[s].t !== "K" && !attacked(b, s, A));
@@ -85,6 +93,9 @@
       const ak = rnd(); b[ak] = {id: "ak", t: "K", c: A};
       mode.pieces.forEach((t, i) => { b[rnd()] = {id: "a" + i, t, c: A}; });
       if (cheb(dk, ak) < 2 || inCheck(b, D)) continue;
+      // doi nebuni: trebuie să fie pe câmpuri de culori diferite, altfel matul e imposibil
+      const bs = b.map((p, s) => p && p.t === "B" ? (F(s) + R(s)) % 2 : -1).filter(x => x >= 0);
+      if (bs.length === 2 && bs[0] === bs[1]) continue;
       if (F(dk) === 0 || F(dk) === 7 || R(dk) === 0 || R(dk) === 7) continue;
       if (attacksFrom(b, dk).some(s => b[s] && b[s].c === A)) continue;
       if (legal(b, A).some(m => legal(applyM(b, m), D).length === 0)) continue;

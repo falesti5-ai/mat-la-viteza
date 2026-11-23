@@ -38,9 +38,25 @@ test("record nou al grupei", () => {
   assert.deepStrictEqual(notes(G.starsForAttempt(att({ms: 29000}), h3)), ["Record nou al grupei"]);
 });
 test("Fulger: pragul este strict", () => {
-  assert.ok(notes(G.starsForAttempt(att({ms: 19999}), [att({})])).includes("Fulger"));
-  assert.ok(!notes(G.starsForAttempt(att({ms: 20000}), [att({ms: 20500})])).includes("Fulger"));
-  assert.strictEqual(G.PRAG.KQR, 10000); assert.strictEqual(G.PRAG.KRR, 15000); assert.strictEqual(G.PRAG.KR, 30000);
+  assert.ok(notes(G.starsForAttempt(att({ms: 24999}), [att({})])).includes("Fulger"));
+  assert.ok(!notes(G.starsForAttempt(att({ms: 25000}), [att({ms: 25500})])).includes("Fulger"));
+  assert.deepStrictEqual([G.PRAG.KQ, G.PRAG.KQR, G.PRAG.KRR, G.PRAG.KR], [25000, 15000, 20000, 35000]);
+});
+test("Fulger după mărirea pragului: cine a avut 22 s (sub pragul vechi de 20 s nu) primește acum", () => {
+  // încercare veche, fără câmpul „fulger”, 22 s la damă: nu luase Fulger
+  assert.ok(notes(G.starsForAttempt(att({ms: 23000}), [att({ms: 22000})])).includes("Fulger"));
+  // încercare veche de 18 s: luase deja Fulger
+  assert.ok(!notes(G.starsForAttempt(att({ms: 17000}), [att({ms: 18000})])).includes("Fulger"));
+  // încercare nouă marcată
+  assert.ok(!notes(G.starsForAttempt(att({ms: 17000}), [att({ms: 24000, fulger: true})])).includes("Fulger"));
+  assert.ok(notes(G.starsForAttempt(att({ms: 17000}), [att({ms: 24000, fulger: false})])).includes("Fulger"));
+});
+test("primul mat la tipurile medii dă 2 stele", () => {
+  const aw = G.starsForAttempt(att({mode: "KRB", ms: 90000}), []);
+  assert.deepStrictEqual(aw.map(a => [a.note.split(" –")[0], a.value]), [["Primul mat", 2]]);
+  assert.strictEqual(G.starsForAttempt(att({mode: "KBB", ms: 90000}), [])[0].value, 2);
+  assert.strictEqual(G.starsForAttempt(att({mode: "KQN", ms: 90000}), [])[0].value, 1);
+  assert.ok(Object.keys(G.PRAG).length === 9);
 });
 test("Fulger o singură dată pe tip", () => {
   const h = [att({ms: 15000})];

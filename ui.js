@@ -4,7 +4,8 @@
   const {fmt, sameDay, ranking, starsForAttempt, contestRanking, contestAwards, weeklyProgress, weekStart} = Reguli;
   const {sfx, confetti, stopConfetti, flash, flyStars, GOLD} = Efecte;
   const KEY = "matLaViteza.v1";
-  const NAME = {K: "regele", Q: "dama", R: "turnul"};
+  const NAME = {K: "regele", Q: "dama", R: "turnul", B: "nebunul", N: "calul"};
+  const GRP = [["grele", "Piese grele"], ["mixt", "Piesă grea + piesă ușoară"], ["usoare", "Doar piese ușoare"]];
   const AVATARS = ["🦊", "🐼", "🦁", "🐯", "🐸", "🦄", "🐲", "🦉", "🐬", "🐧", "🚀", "⚡"];
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -48,9 +49,18 @@
     Q: `<circle cx="8" cy="12" r="2.6"/><circle cx="16" cy="9" r="2.6"/><circle cx="22.5" cy="8" r="2.6"/><circle cx="29" cy="9" r="2.6"/><circle cx="37" cy="12" r="2.6"/>
        <path d="M12.5 31L8 14l7.5 9 1-13 6 12 6-12 1 13 7.5-9-4.5 17z"/><path d="M10 38.5h25l-2.5-7.5h-20z"/>`,
     R: `<path d="M9 39h27v-4.5H9z"/><path d="M12.5 34.5l1.5-15h17l1.5 15z"/><path d="M11 15V9h4.5v2.5h4.5V9h5v2.5h4.5V9H34v6l-3 4.5H14z"/>`,
+    B: `<path d="M10 38.5h25l-2.5-5h-20z"/><circle cx="22.5" cy="8.3" r="2.9"/>
+       <path d="M22.5 11.4c-5.8 4.2-8.8 8.7-8.8 13.2 0 3.6 2 6.3 3.6 8.4h10.4c1.6-2.1 3.6-4.8 3.6-8.4 0-4.5-3-9-8.8-13.2z"/>
+       <path d="M25.8 17.2l-5.6 6.6" fill="none" stroke="{IN}" stroke-width="2.2" stroke-linecap="round"/>`,
+    N: `<path d="M10.5 38.5h24l-2-5h-20z"/>
+       <path d="M14.5 33.5c-.4-5.2 2.2-8.6 6.2-11.8-2.6.9-5.4 1.5-7.6 1-2-.5-3.4-1.9-3.3-3.6.1-1.4 1-2.7 2.3-3.8l6.6-5.8 1-4.2 2.8 2.7c7 .6 12.6 6 12.6 14.6 0 4.3-1 8.3-2.7 10.9z"/>
+       <circle cx="18.6" cy="13.6" r="1.3" fill="{IN}" stroke="none"/><path d="M24.6 9.8c4.6 1.6 7.6 6 7.6 12.4" fill="none" stroke="{IN}" stroke-width="1.2"/>`,
   };
-  const pieceSVG = (t, c) => `<svg viewBox="0 0 45 45" width="88%" height="88%" fill="${c === "w" ? "#fbfbf7" : "#2b2b33"}" stroke="${c === "w" ? "#26262c" : "#0d0d10"}"
-    stroke-width="1.6" stroke-linejoin="round">${SHAPE[t]}${c === "b" ? `<path d="M14 35.5h17" stroke="#9a9aa8" stroke-width="1" fill="none"/>` : ""}</svg>`;
+  const pieceSVG = (t, c, sz = "88%") => `<svg viewBox="0 0 45 45" width="${sz}" height="${sz}" fill="${c === "w" ? "#fbfbf7" : "#2b2b33"}" stroke="${c === "w" ? "#26262c" : "#0d0d10"}"
+    stroke-width="1.6" stroke-linejoin="round">${SHAPE[t].replace(/\{IN\}/g, c === "w" ? "#26262c" : "#c9c9d4")}${c === "b" ? `<path d="M14 35.5h17" stroke="#9a9aa8" stroke-width="1" fill="none"/>` : ""}</svg>`;
+
+  /* iconița tipului de mat: piesele atacantului desenate la fel ca pe tablă */
+  const ico = m => `<span class="pic">${m.pieces.map(t => pieceSVG(t, "b", "1.15em")).join("")}</span>`;
 
   /* ---------- navigare ---------- */
   function renderNav(active) {
@@ -61,11 +71,12 @@
   /* ---------- ghidul cu regulile și codul QR ---------- */
   function guideHTML() {
     const L = id => modeById(id).label, s = ms => ms / 1000 + " s";
+    const medii = MODES.filter(m => m.stele > 1).map(m => m.label).join(", ");
     const game = `<h3>♟️ Cum se joacă</h3><ul>
       <li>Copilul dă mat regelui advers cu piesele alese prin bife: ${MODES.map(m => m.label).join(", ")}.</li>
       <li>Poziția e nouă la fiecare încercare, iar culoarea pieselor se schimbă la întâmplare. Calculatorul apără regele.</li>
       <li>Contează <b>timpul</b>; mutările se numără și se afișează.</li>
-      <li>Încercarea se termină fără mat la: <b>pat</b> (remiză), <b>piesa grea pierdută</b>, <b>aceeași poziție repetată de 3 ori</b> (remiză), <b>50 de mutări</b> fără mat sau <b>renunțare</b>.</li>
+      <li>Încercarea se termină fără mat la: <b>pat</b> (remiză), <b>o piesă pierdută</b>, <b>aceeași poziție repetată de 3 ori</b> (remiză), <b>50 de mutări</b> fără mat sau <b>renunțare</b>.</li>
       <li><b>💡 Cu indicii:</b> se văd „cușca” regelui, piesa în pericol, mutările posibile și avertismentul de repetare.
         <b>Fără indicii</b> nu se arată nici mutările posibile.</li></ul>`;
     if (MOD !== "cerc") return `<div class="guide">${game}</div>`;
@@ -73,11 +84,11 @@
       <h3>⭐ Stelele (doar pentru matul fără indicii și doar pentru copiii din Liga Stelelor)</h3>
       <table><tr><th>Pentru ce</th><th>Stele</th><th>Cât de des</th></tr>
         <tr><td>🏁 Întrecere: locul 1 / 2 / 3</td><td><b>3 / 2 / 1</b></td><td>la fiecare întrecere</td></tr>
-        <tr><td>🥇 Primul mat la un tip de mat</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
+        <tr><td>🥇 Primul mat la un tip de mat<br><span class="note">★★ la maturile mai grele (${medii}): <b>+2</b></span></td><td><b>+1</b> / <b>+2</b></td><td>o dată pe tip</td></tr>
         <tr><td>👑 Record nou al grupei la un tip</td><td><b>+1</b></td><td>de fiecare dată</td></tr>
         <tr><td>🎓 Primul mat fără indicii, după ce a exersat cu indicii</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
         <tr><td>🔥 Serie de 5 maturi la rând (fără pat, remiză, piesă pierdută sau renunțare)</td><td><b>+1</b></td><td>la fiecare 5</td></tr>
-        <tr><td>⚡ Fulger: ${L("KQ")} &lt; ${s(Reguli.PRAG.KQ)} · ${L("KQR")} &lt; ${s(Reguli.PRAG.KQR)} · ${L("KRR")} &lt; ${s(Reguli.PRAG.KRR)} · ${L("KR")} &lt; ${s(Reguli.PRAG.KR)}</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
+        <tr><td>⚡ Fulger – matul mai repede decât:<br><span class="note">${MODES.map(m => `${m.label} &lt; ${s(Reguli.PRAG[m.id])}`).join(" · ")}</span></td><td><b>+1</b></td><td>o dată pe tip</td></tr>
         <tr><td>📈 Cel mai mare progres al săptămânii (Clasament → butonul „+1”)</td><td><b>+1</b></td><td>o dată pe săptămână, pe grupă</td></tr></table>
       <p class="note">Stelele intră singure în Liga Stelelor, cu motivul „⏱️ Mat la viteză – întrecere” sau „♜ Mat la viteză – realizare” și o notiță (de exemplu „Fulger – Rege + Damă, 0:17.4”).
         Încercările cu indicii apar în clasament cu 💡, dar nu primesc stele. Copiii scriși de mână nu primesc stele.</p>
@@ -126,9 +137,14 @@
     return `<button class="kid ${on ? "on" : ""}" data-kid="${s.id}">${extra}<div class="av" style="background:${s.color}33">${s.avatar}</div>
       <div class="nm">${esc(s.name)}</div><div class="st">⭐ ${starsOf(s.id)}</div></button>`;
   }
+  /* butoanele cu tipurile de mat, pe grupe; isOn(id), attr = data-mode / data-cm */
+  function modeButtons(isOn, attr, radio = false) {
+    return `<div class="modes">${GRP.map(([g, t]) => `<div class="mgrp">${t}</div>` + MODES.filter(m => m.grp === g).map(m =>
+      `<button class="mode ${radio ? "radio" : ""} ${isOn(m.id) ? "on" : ""}" data-${attr}="${m.id}"><span class="box">✓</span><span class="ic">${ico(m)}</span>
+        <span><b>${m.label}</b>${m.stele > 1 ? `<small class="lvl">★★ mai greu</small>` : ""}</span></button>`).join("")).join("")}</div>`;
+  }
   function modesHTML() {
-    return `<div class="modes">${MODES.map(m => `<button class="mode ${ui.modes.includes(m.id) ? "on" : ""}" data-mode="${m.id}">
-      <span class="box">✓</span><span class="ic">${m.ic}</span><span><b>${m.label}</b></span></button>`).join("")}</div>
+    return `${modeButtons(id => ui.modes.includes(id), "mode")}
       <p class="note" style="margin-top:8px">Dacă bifați mai multe, ele vin la întâmplare. Culoarea pieselor se schimbă singură.</p>
       <button class="switch ${ui.hints ? "on" : ""}" data-act="hints"><span class="tg"></span><span><b>💡 Cu indicii</b><br><span class="note">„cușca” regelui și piesele în pericol${MOD === "cerc" ? " · fără stele" : ""}</span></span></button>`;
   }
@@ -196,7 +212,7 @@
     $("#game").innerHTML = `<div class="game">
       <div class="boardwrap"><div class="board" id="board"></div></div>
       <div class="side">
-        <div class="card player"><div class="av" style="background:${p.color}33">${p.avatar}</div><div><b>${esc(p.name)}</b><span>${m.ic} ${m.label}${G.kind === "intrecere" ? " · 🏁 întrecere" : ""}</span></div></div>
+        <div class="card player"><div class="av" style="background:${p.color}33">${p.avatar}</div><div><b>${esc(p.name)}</b><span>${ico(m)} ${m.label}${G.kind === "intrecere" ? " · 🏁 întrecere" : ""}</span></div></div>
         ${steps}
         <div class="color ${G.A}">${G.A === "w" ? "⚪ Joci cu ALBELE" : "⚫ Joci cu NEGRELE"}</div>
         <div class="card tcard"><div class="timer" id="timer">0:00.0</div>
@@ -355,9 +371,10 @@
     let starsHTML = "", star = null;
     if (MOD === "cerc") {
       const awards = starsForAttempt(att, prior);
+      att.fulger = awards.some(a => a.tip === "fulger"); save();
       if (awards.length) {
         try {
-          const r = Liga.scrieStele(localStorage, awards); liga = r.state; star = {awards, res: r.rezultate[0]};
+          const r = Liga.scrieStele(localStorage, awards.map(({tip, ...a}) => a)); liga = r.state; star = {awards, res: r.rezultate[0]};
           starsHTML = `<div class="starsbox"><div class="av" id="sav" style="background:${p.color}33">${p.avatar}</div><div>
             <div class="tot" id="stot">⭐ ${star.res.inainte}</div><ul>${awards.map(a => `<li>⭐ +${a.value} · ${esc(a.note)}</li>`).join("")}</ul></div></div>
             <p class="note f5">Stelele au intrat în Liga Stelelor. Dacă Liga e deschisă în alt tab, apăsați F5 în ea înainte să dați alte stele.</p>`;
@@ -443,14 +460,14 @@
         <p class="note">Toți copiii primesc aceleași 3 poziții. Se adună timpul celor 3 poziții. Indiciile sunt oprite. Primii trei primesc 3 – 2 – 1 stele în Liga Stelelor.</p>
         <div class="lbl note"><b>Grupa:</b></div><div class="tabs">${groups().map(g => `<button data-cg="${g.id}" class="${ui.cGroup === g.id ? "on" : ""}">${esc(g.name)}</button>`).join("")}</div>
         <div class="lbl note"><b>Tipul de mat:</b></div>
-        <div class="modes">${MODES.map(m => `<button class="mode radio ${ui.cMode === m.id ? "on" : ""}" data-cm="${m.id}"><span class="box">✓</span><span class="ic">${m.ic}</span><span><b>${m.label}</b></span></button>`).join("")}</div>
+        ${modeButtons(id => ui.cMode === id, "cm", true)}
         <button class="go" data-act="newc">🏁 Începe întrecerea</button></div>
         ${last ? `<div class="card"><h2>Ultima întrecere</h2><p class="note">${new Date(last.ts).toLocaleDateString("ro-RO")} · ${esc(groupName(last.group))} · ${modeById(last.mode).label}</p>${contestTable(last)}</div>` : ""}</div>`;
       return;
     }
     const done = new Map(); contestRanking(C).forEach(e => done.set(e.pid, e));
     $("#contest").innerHTML = `<div class="wrap">
-      <div class="card"><div class="lbtop"><h2 style="margin:0">🏁 Întrecere: ${modeById(C.mode).ic} ${modeById(C.mode).label} · ${esc(groupName(C.group))}</h2></div>
+      <div class="card"><div class="lbtop"><h2 style="margin:0">🏁 Întrecere: ${ico(modeById(C.mode))} ${modeById(C.mode).label} · ${esc(groupName(C.group))}</h2></div>
         <p class="note">Atingeți copilul care joacă acum. Fiecare joacă aceleași 3 poziții; contează cel mai bun total.</p>
         <div class="kids">${students(C.group).map(s => kidCard(s, false, done.has(s.id) ? `<span class="done">✓ ${fmt(done.get(s.id).total)}</span>` : "")).join("")}</div>
         <div class="row" style="margin-top:12px"><input id="cn" maxlength="30" placeholder="Alt nume (fără stele)"><button class="small" data-act="cname">▶ Joacă</button></div></div>
@@ -486,11 +503,11 @@
   function awardContest(C) {
     const awards = contestAwards(C), rk = contestRanking(C).slice(0, 3);
     let res = [], err = "";
-    try { const r = Liga.scrieStele(localStorage, awards); liga = r.state; res = r.rezultate; } catch (e) { err = e.message; }
+    try { const r = Liga.scrieStele(localStorage, awards.map(({tip, ...a}) => a)); liga = r.state; res = r.rezultate; } catch (e) { err = e.message; }
     C.open = false; save();
     const order = [1, 0, 2].filter(i => rk[i]);
     const m = modal(`<div class="res wide"><h1 style="color:var(--gold)">⭐ Premierea ⭐</h1>
-      <p>${modeById(C.mode).ic} ${modeById(C.mode).label} · ${esc(groupName(C.group))} · ${new Date().toLocaleDateString("ro-RO")}</p>
+      <p>${ico(modeById(C.mode))} ${modeById(C.mode).label} · ${esc(groupName(C.group))} · ${new Date().toLocaleDateString("ro-RO")}</p>
       <div class="podium">${order.map(i => { const e = rk[i], r = res.find(x => x.sid === e.sid); return `<div class="pod p${i + 1}">
         <div class="av" style="background:${e.color}33;animation-delay:${.9 + (2 - i) * .2}s" id="pav${i}">${e.avatar}</div>
         <div class="nm">${esc(e.name)}</div><div class="tm">${fmt(e.total)} · ${e.moves.reduce((a, x) => a + x, 0)} mutări</div>
@@ -514,7 +531,7 @@
       <div class="lbtop"><h2 style="margin:0">🏆 Clasament</h2><span class="sp"></span>
         <div class="tabs" style="margin:0"><button data-scope="today" class="${ui.lbScope === "today" ? "on" : ""}">Azi</button><button data-scope="all" class="${ui.lbScope === "all" ? "on" : ""}">Toate timpurile</button></div></div>
       ${MOD === "cerc" ? `<div class="tabs">${groups().map(g => `<button data-lg="${g.id}" class="${ui.lbGroup === g.id ? "on" : ""}">${esc(g.name)}</button>`).join("")}</div>` : ""}
-      <div class="tabs">${MODES.map(m => `<button data-lbm="${m.id}" class="${ui.lbMode === m.id ? "on" : ""}">${m.ic} ${m.label}</button>`).join("")}</div>
+      <div class="tabs">${MODES.map(m => `<button data-lbm="${m.id}" class="${ui.lbMode === m.id ? "on" : ""}">${ico(m)} ${m.label}</button>`).join("")}</div>
       ${rows.length ? `<table><tr><th></th><th>${MOD === "cerc" ? "Copilul" : "Numele"}</th><th>Cel mai bun timp</th><th>Mutări</th><th>Încercări</th></tr>
         ${rows.map((r, i) => `<tr><td class="rk">${MEDAL[i] || i + 1}</td><td><span class="av" style="background:${r.a.color}33">${r.a.avatar}</span>${esc(r.a.name)}${r.a.hints ? " 💡" : ""}</td>
           <td class="t">${fmt(r.a.ms)}</td><td>${r.a.moves}</td><td>${r.tries}</td></tr>`).join("")}</table>`

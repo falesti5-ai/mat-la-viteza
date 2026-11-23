@@ -73,3 +73,28 @@ test("apărarea fără întâmplare e deterministă", () => {
   const x = S.defenderMove(b, "b", null), y = S.defenderMove(b, "b", null);
   assert.deepStrictEqual([x.from, x.to], [y.from, y.to]);
 });
+
+test("nebunul și calul: atacuri corecte", () => {
+  const b = board({d4: "wB", b2: "bK", h8: "wK"});
+  const at = S.attacksFrom(b, sq("d4")).sort((x, y) => x - y);
+  assert.ok(at.includes(sq("c3")) && at.includes(sq("b2")) && !at.includes(sq("a1")), "nebunul se oprește la piesă");
+  assert.ok(at.includes(sq("g7")) && !at.includes(sq("d5")));
+  const n = board({g1: "wN", a8: "bK", a1: "wK"});
+  assert.deepStrictEqual(S.attacksFrom(n, sq("g1")).sort((x, y) => x - y), ["e2", "f3", "h3"].map(sq).sort((x, y) => x - y));
+});
+test("maturi cunoscute cu piese ușoare", () => {
+  // doi nebuni: Rh8 / Rg6, Nf6 dă șah, Ne6 ține g8
+  assert.strictEqual(S.isMate(board({h8: "bK", g6: "wK", f6: "wB", e6: "wB"}), "b"), true);
+  assert.strictEqual(S.isMate(board({h8: "bK", g6: "wK", e5: "wB", e4: "wB"}), "b"), false); // fuge pe g8
+  // turn + cal: Rh8 / Rh6, Cf7 dă șah, Tg1 ține coloana g
+  assert.strictEqual(S.isMate(board({h8: "bK", h6: "wK", f7: "wN", g1: "wR"}), "b"), true);
+  assert.strictEqual(S.isMate(board({h8: "bK", h6: "wK", f7: "wN", f1: "wR"}), "b"), false);
+});
+test("doi nebuni sunt mereu pe culori diferite", () => {
+  const m = S.modeById("KBB");
+  for (let i = 0; i < 200; i++) {
+    const {b} = S.genPosition(m);
+    const c = b.map((p, s) => p && p.t === "B" ? ((s & 7) + (s >> 3)) % 2 : -1).filter(x => x >= 0);
+    assert.strictEqual(c.length, 2); assert.notStrictEqual(c[0], c[1]);
+  }
+});
