@@ -462,13 +462,15 @@
     }, 900);
   }
   /* ---------- experimentul cu 2 cai ---------- */
+  /* diagramă mică: câmpuri egale (poziționate ca pe tabla mare) și coordonatele a–h, 1–8 */
   function miniBoard(spec, marks = {}) {
     let h = "";
     for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) {
       const n = "abcdefgh"[f] + (r + 1), v = spec[n], mk = marks[n];
-      h += `<div class="msq ${(f + r) % 2 ? "l" : "d"} ${mk || ""}">${v ? pieceSVG(v[1], v[0]) : ""}${mk === "ok" ? "<i>✅</i>" : mk === "bad" ? "<i>❌</i>" : ""}</div>`;
+      h += `<div class="msq ${(f + r) % 2 ? "l" : "d"} ${mk || ""}${v ? "" : " solo"}" style="left:${f * 12.5}%;top:${(7 - r) * 12.5}%">${v ? pieceSVG(v[1], v[0]) : ""}${mk === "ok" ? "<i>✅</i>" : mk === "bad" ? "<i>❌</i>" : ""}</div>`;
     }
-    return `<div class="mini">${h}</div>`;
+    return `<div class="minib"><div class="mranks">${[8, 7, 6, 5, 4, 3, 2, 1].map(n => `<span>${n}</span>`).join("")}</div>
+      <div class="mini">${h}</div><span></span><div class="mfiles">${[..."abcdefgh"].map(c => `<span>${c}</span>`).join("")}</div></div>`;
   }
   function expHTML() {
     return `<div class="diag"><div>${miniBoard({a8: "bK", c7: "wK", c6: "wN", d5: "wN"}, {a8: "pat"})}
