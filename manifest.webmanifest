@@ -1,0 +1,17 @@
+{
+  "name": "Mat la viteză",
+  "short_name": "Mat la viteză",
+  "description": "Antrenament la mat pentru cercul de șah",
+  "lang": "ro",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#efeaff",
+  "theme_color": "#6c4cff",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

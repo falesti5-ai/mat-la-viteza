@@ -1,11 +1,12 @@
 /* Mat la viteză – ecranele. Modul „cerc” (cu Liga Stelelor) sau „acasă” (telefon, fără Ligă). */
 (function () {
-  const {MODES, modeById, opp, legal, applyM, inCheck, cage, hanging, genPosition, defenderMove, F, R} = Sah;
+  const {MODES, modeById, opp, legal, applyM, inCheck, cage, hanging, genPosition, defenderMove, F, R, kingSq, cheb, onEdge, goodCorners, mateIn1} = Sah;
   const {fmt, sameDay, ranking, starsForAttempt, contestRanking, contestAwards, weeklyProgress, weekStart} = Reguli;
   const {sfx, confetti, stopConfetti, flash, flyStars, GOLD} = Efecte;
   const KEY = "matLaViteza.v1";
   const NAME = {K: "regele", Q: "dama", R: "turnul", B: "nebunul", N: "calul"};
-  const GRP = [["grele", "Piese grele"], ["mixt", "Piesă grea + piesă ușoară"], ["usoare", "Doar piese ușoare"]];
+  const GRP = [["grele", "Piese grele"], ["mixt", "Damă + piesă ușoară · regele tău stă în colț 🔒"], ["usoare", "Doar piese ușoare"]];
+  const ACTIVE = MODES.filter(m => m.grp !== "experiment").map(m => m.id); // tipurile de mat cu timp și stele
   const AVATARS = ["🦊", "🐼", "🦁", "🐯", "🐸", "🦄", "🐲", "🦉", "🐬", "🐧", "🚀", "⚡"];
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -21,6 +22,9 @@
   let ui = {modes: ["KR"], hints: true, group: null, player: null, lbMode: "KR", lbScope: "today", lbGroup: null,
     homeName: "", homeAvatar: "🦊", cMode: "KR", cGroup: null};
   try { const u = JSON.parse(localStorage.getItem(KEY + ".ui") || "null"); if (u) ui = Object.assign(ui, u); } catch (e) {}
+  ui.modes = ui.modes.filter(id => ACTIVE.includes(id)); if (!ui.modes.length) ui.modes = ["KR"];
+  if (!ACTIVE.includes(ui.cMode)) ui.cMode = "KR";
+  if (!ACTIVE.includes(ui.lbMode)) ui.lbMode = "KR";
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(db)); localStorage.setItem(KEY + ".ui", JSON.stringify(ui)); }
     catch (e) { alert("Rezultatele nu s-au putut salva în browser."); }
@@ -71,24 +75,30 @@
   /* ---------- ghidul cu regulile și codul QR ---------- */
   function guideHTML() {
     const L = id => modeById(id).label, s = ms => ms / 1000 + " s";
-    const medii = MODES.filter(m => m.stele > 1).map(m => m.label).join(", ");
+    const cu = n => ACTIVE.filter(id => modeById(id).stele === n).map(L).join(", ");
     const game = `<h3>♟️ Cum se joacă</h3><ul>
-      <li>Copilul dă mat regelui advers cu piesele alese prin bife: ${MODES.map(m => m.label).join(", ")}.</li>
+      <li>Copilul dă mat regelui advers cu piesele alese prin bife: ${ACTIVE.map(L).join(", ")}.</li>
+      <li>🔒 La <b>Damă + Nebun</b> și <b>Damă + Cal</b> regele tău stă într-un colț și nu se mișcă: matul se dă doar cu dama și piesa ușoară.</li>
+      <li>La <b>Rege + Nebun + Cal</b> matul se poate da doar în colțul de culoarea nebunului.</li>
+      <li>🔬 <b>Experimentul cu 2 cai</b> arată de ce cu doi cai matul nu se poate forța (fără timp și fără stele).</li>
       <li>Poziția e nouă la fiecare încercare, iar culoarea pieselor se schimbă la întâmplare. Calculatorul apără regele.</li>
       <li>Contează <b>timpul</b>; mutările se numără și se afișează.</li>
       <li>Încercarea se termină fără mat la: <b>pat</b> (remiză), <b>o piesă pierdută</b>, <b>aceeași poziție repetată de 3 ori</b> (remiză), <b>50 de mutări</b> fără mat sau <b>renunțare</b>.</li>
-      <li><b>💡 Cu indicii:</b> se văd „cușca” regelui, piesa în pericol, mutările posibile și avertismentul de repetare.
+      <li><b>💡 Cu indicii:</b> se văd „cușca” regelui, piesa în pericol, mutările posibile, <b>pașii matului</b> și avertismentul de repetare.
         <b>Fără indicii</b> nu se arată nici mutările posibile.</li></ul>`;
-    if (MOD !== "cerc") return `<div class="guide">${game}</div>`;
-    return `<div class="guide">${game}
+    const how = `<h3>🧭 Cum se dă matul (aceiași pași apar în indicii)</h3>
+      <p class="note"><b>Damă + Nebun / Damă + Cal, regele în colț 🔒</b></p><ol>${STEPS.Q.map(x => `<li>${x}</li>`).join("")}</ol>
+      <p class="note"><b>Rege + Nebun + Cal</b></p><ol>${STEPS.BN.map(x => `<li>${x}</li>`).join("")}</ol>`;
+    if (MOD !== "cerc") return `<div class="guide">${game}${how}</div>`;
+    return `<div class="guide">${game}${how}
       <h3>⭐ Stelele (doar pentru matul fără indicii și doar pentru copiii din Liga Stelelor)</h3>
       <table><tr><th>Pentru ce</th><th>Stele</th><th>Cât de des</th></tr>
         <tr><td>🏁 Întrecere: locul 1 / 2 / 3</td><td><b>3 / 2 / 1</b></td><td>la fiecare întrecere</td></tr>
-        <tr><td>🥇 Primul mat la un tip de mat<br><span class="note">★★ la maturile mai grele (${medii}): <b>+2</b></span></td><td><b>+1</b> / <b>+2</b></td><td>o dată pe tip</td></tr>
+        <tr><td>🥇 Primul mat la un tip de mat<br><span class="note">${cu(1)}: <b>+1</b> · ★★ ${cu(2)}: <b>+2</b> · ★★★ ${cu(5)}: <b>+5</b></span></td><td><b>+1</b> / <b>+2</b> / <b>+5</b></td><td>o dată pe tip</td></tr>
         <tr><td>👑 Record nou al grupei la un tip</td><td><b>+1</b></td><td>de fiecare dată</td></tr>
         <tr><td>🎓 Primul mat fără indicii, după ce a exersat cu indicii</td><td><b>+1</b></td><td>o dată pe tip</td></tr>
         <tr><td>🔥 Serie de 5 maturi la rând (fără pat, remiză, piesă pierdută sau renunțare)</td><td><b>+1</b></td><td>la fiecare 5</td></tr>
-        <tr><td>⚡ Fulger – matul mai repede decât:<br><span class="note">${MODES.map(m => `${m.label} &lt; ${s(Reguli.PRAG[m.id])}`).join(" · ")}</span></td><td><b>+1</b></td><td>o dată pe tip</td></tr>
+        <tr><td>⚡ Fulger – matul mai repede decât:<br><span class="note">${ACTIVE.map(id => `${L(id)} &lt; ${s(Reguli.PRAG[id])}`).join(" · ")}</span></td><td><b>+1</b></td><td>o dată pe tip</td></tr>
         <tr><td>📈 Cel mai mare progres al săptămânii (Clasament → butonul „+1”)</td><td><b>+1</b></td><td>o dată pe săptămână, pe grupă</td></tr></table>
       <p class="note">Stelele intră singure în Liga Stelelor, cu motivul „⏱️ Mat la viteză – întrecere” sau „♜ Mat la viteză – realizare” și o notiță (de exemplu „Fulger – Rege + Damă, 0:17.4”).
         Încercările cu indicii apar în clasament cu 💡, dar nu primesc stele. Copiii scriși de mână nu primesc stele.</p>
@@ -104,6 +114,16 @@
         Cel mai sigur: închideți Liga cât timp copiii joacă și deschideți-o după aceea.</div>
       <h3>📱 Pentru acasă</h3><p class="note">Copiii se antrenează pe telefon la <b>${esc(window.QR_URL || "")}</b> (fără stele). Butonul „📱 Acasă” arată codul QR mare, de proiectat.</p></div>`;
   }
+  /* pașii matului (în ghid și în indicii) */
+  const STEPS = {
+    Q: ["<b>Strânge cușca cu dama.</b> Pune dama la o săritură de cal de regele advers: acolo nu o poate ataca, iar cușca se micșorează. Așa îl împingi spre margine.",
+        "<b>Adu piesa ușoară.</b> Nebunul sau calul trebuie să apere un câmp lipit de regele advers. Regele tău nu te ajută, deci nu lăsa piesele lângă regele advers!",
+        "<b>„Sărutul morții”.</b> Dama se lipește de regele advers, pe câmpul apărat de nebun sau cal: regele nu o poate lua – mat. Atenție la pat!"],
+    BN: ["<b>Adună piesele în centru</b> și împinge regele advers la margine cu regele, nebunul și calul.",
+         "<b>Află colțul bun:</b> matul se dă doar în colțul de culoarea nebunului (cu indicii e colorat cu auriu).",
+         "<b>Mută-l spre colțul bun:</b> dacă regele a fugit în colțul greșit, du-l pe margine spre cel bun – calul face un drum în formă de „W”, nebunul îi taie drumul înapoi.",
+         "<b>Matul în colțul bun:</b> regele tău stă în fața regelui advers, iar nebunul și calul dau ultimele șahuri. Ai 50 de mutări."],
+  };
   function openGuide() {
     modal(`<div class="res wide guideres"><h1 style="color:var(--accent)">📜 Reguli</h1>${guideHTML()}<div class="btns"><button class="pri" data-act="close">Am înțeles</button></div></div>`);
   }
@@ -141,12 +161,13 @@
   function modeButtons(isOn, attr, radio = false) {
     return `<div class="modes">${GRP.map(([g, t]) => `<div class="mgrp">${t}</div>` + MODES.filter(m => m.grp === g).map(m =>
       `<button class="mode ${radio ? "radio" : ""} ${isOn(m.id) ? "on" : ""}" data-${attr}="${m.id}"><span class="box">✓</span><span class="ic">${ico(m)}</span>
-        <span><b>${m.label}</b>${m.stele > 1 ? `<small class="lvl">★★ mai greu</small>` : ""}</span></button>`).join("")).join("")}</div>`;
+        <span><b>${m.label}</b>${m.stele === 5 ? `<small class="lvl">★★★ cel mai greu</small>` : m.stele > 1 ? `<small class="lvl">★★ mai greu</small>` : ""}</span></button>`).join("")).join("")}</div>`;
   }
   function modesHTML() {
     return `${modeButtons(id => ui.modes.includes(id), "mode")}
       <p class="note" style="margin-top:8px">Dacă bifați mai multe, ele vin la întâmplare. Culoarea pieselor se schimbă singură.</p>
-      <button class="switch ${ui.hints ? "on" : ""}" data-act="hints"><span class="tg"></span><span><b>💡 Cu indicii</b><br><span class="note">„cușca” regelui și piesele în pericol${MOD === "cerc" ? " · fără stele" : ""}</span></span></button>`;
+      <button class="switch ${ui.hints ? "on" : ""}" data-act="hints"><span class="tg"></span><span><b>💡 Cu indicii</b><br><span class="note">„cușca” regelui, piesele în pericol și pașii matului${MOD === "cerc" ? " · fără stele" : ""}</span></span></button>
+      <button class="expbtn" data-act="exp"><span class="ic">🔬</span><span><b>Experiment: Rege + 2 Cai</b><br><span class="note">De ce cu doi cai matul nu se poate da? Încearcă și vezi! (fără timp și fără stele)</span></span></button>`;
   }
   function renderStart() {
     const sel = ui.player;
@@ -185,6 +206,7 @@
     else if (t.dataset.act === "hints") ui.hints = !ui.hints;
     else if (t.dataset.act === "nn") takeName();
     else if (t.dataset.act === "go") { save(); return startPractice(); }
+    else if (t.dataset.act === "exp") { save(); return startExperiment(1); }
     save(); renderStart();
   });
   $("#start").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "nn") { takeName(); save(); renderStart(); } });
@@ -192,14 +214,36 @@
   /* ---------- tabla și jocul ---------- */
   let G = null, timerRaf = null;
   function boardSize() {
-    if (innerWidth <= 700) return Math.max(240, Math.min(innerWidth - 40, innerHeight - 250));
+    if (innerWidth <= 700) { // telefon: sus timpul, apoi tabla, sub ea indiciile – totul pe un ecran
+      const hdr = (document.querySelector("header") || {offsetHeight: 110}).offsetHeight;
+      return Math.max(220, Math.min(innerWidth - 40, innerHeight - hdr - 120 - (hintsOn() ? 110 : 20)));
+    }
     return Math.max(240, Math.min(innerHeight - 120, innerWidth - 420));
   }
-  const hintsOn = () => G && G.kind === "antrenament" && ui.hints;
+  const hintsOn = () => G && (G.kind === "experiment" || (G.kind === "antrenament" && ui.hints));
   function startPractice() {
     const mode = modeById(ui.modes[Math.random() * ui.modes.length | 0]);
     const {b, A} = genPosition(mode);
     beginBoard({b, A, mode, kind: "antrenament", rng: Math.random});
+  }
+  /* experimentul cu 2 cai: partea 1 – apărare corectă; partea 2 – regele greșește */
+  const EXP2 = {b8: "bK", b6: "wK", e6: "wN", f6: "wN"}; // albul: Cd7+ … Ra8?? Cc7#
+  function symPos(spec) { // una din cele 8 simetrii ale tablei (pentru regi și cai nu contează)
+    const fx = Math.random() < .5, fy = Math.random() < .5, tr = Math.random() < .5, b = Array(64).fill(null);
+    let k = 0;
+    for (const [n, v] of Object.entries(spec)) {
+      let f = n.charCodeAt(0) - 97, r = n.charCodeAt(1) - 49;
+      if (tr) [f, r] = [r, f];
+      if (fx) f = 7 - f;
+      if (fy) r = 7 - r;
+      b[r * 8 + f] = {id: v === "bK" ? "dk" : v === "wK" ? "ak" : "a" + k++, t: v[1], c: v[0]};
+    }
+    return b;
+  }
+  function startExperiment(part) {
+    const mode = modeById("KNN"), p = ui.player || {pid: "exp", name: "Cercetător", color: "#6c4cff", group: null};
+    const pos = part === 1 ? genPosition(mode) : {b: symPos(EXP2), A: "w"};
+    beginBoard({b: pos.b, A: pos.A, mode, kind: "experiment", part, rng: Math.random, player: Object.assign({}, p, {avatar: "🔬"})});
   }
   function beginBoard(o) {
     stopConfetti(); document.querySelectorAll(".modal").forEach(m => m.remove());
@@ -207,8 +251,10 @@
     notePos(G.b, G.A);
     show("game");
     const p = G.player || ui.player, m = G.mode;
+    const exp = G.kind === "experiment";
     const steps = G.kind === "intrecere"
-      ? `<div class="steps">${[0, 1, 2].map(i => `<span class="${i < G.run.idx ? "ok" : i === G.run.idx ? "on" : ""}">${i < G.run.idx ? "✓ " + fmt(G.run.times[i]) : "Poziția " + (i + 1)}</span>`).join("")}</div>` : "";
+      ? `<div class="steps">${[0, 1, 2].map(i => `<span class="${i < G.run.idx ? "ok" : i === G.run.idx ? "on" : ""}">${i < G.run.idx ? "✓ " + fmt(G.run.times[i]) : "Poziția " + (i + 1)}</span>`).join("")}</div>`
+      : exp ? `<div class="steps"><span class="${G.part === 1 ? "on" : "ok"}">🔬 Partea 1: apărare corectă</span><span class="${G.part === 2 ? "on" : ""}">Partea 2: regele greșește</span></div>` : "";
     $("#game").innerHTML = `<div class="game">
       <div class="boardwrap"><div class="board" id="board"></div></div>
       <div class="side">
@@ -216,13 +262,14 @@
         ${steps}
         <div class="color ${G.A}">${G.A === "w" ? "⚪ Joci cu ALBELE" : "⚫ Joci cu NEGRELE"}</div>
         <div class="card tcard"><div class="timer" id="timer">0:00.0</div>
-          <div class="stats" style="margin-top:10px"><div><b id="mv">0</b><span>mutări</span></div><div><b id="best">–</b><span>${G.kind === "intrecere" ? "timp total" : "recordul tău"}</span></div></div>
+          <div class="stats" style="margin-top:10px"><div><b id="mv">0</b><span>mutări${m.id === "KBN" ? " din 50" : exp ? ` din ${G.part === 1 ? 20 : 30}` : ""}</span></div><div><b id="best">–</b><span>${G.kind === "intrecere" ? "timp total" : exp ? "experiment" : "recordul tău"}</span></div></div>
           <div class="rec" id="rec" style="margin-top:8px"></div></div>
         <div class="hintbox" id="hint"></div>
         ${G.kind === "antrenament" ? `<button class="switch ${ui.hints ? "on" : ""}" data-act="hints"><span class="tg"></span><b>💡 Indicii</b></button>` : ""}
-        <button class="giveup" data-act="giveup">🏳️ Renunț la poziție</button>
+        <button class="giveup" data-act="giveup">${exp ? (G.part === 1 ? "🤔 M-am convins!" : "🏳️ Gata") : "🏳️ Renunț la poziție"}</button>
       </div></div>`;
     if (G.kind === "intrecere") $("#best").textContent = fmt(G.run.times.reduce((a, x) => a + x, 0));
+    else if (exp) { $("#best").textContent = "🔬"; $("#rec").textContent = "Aici nu contează timpul – urmărește ce face regele."; }
     else {
       const pb = bestClean(m.id, a => a.pid === p.pid), rec = recordFor(m.id, p.group);
       $("#best").textContent = pb ? fmt(pb.ms) : "–";
@@ -269,6 +316,7 @@
     // mutările care ar repeta a treia oară o poziție (remiză)
     const repMove = m => seenCount(applyM(b, m), G.D) >= 2;
     const repNow = hints && (seenCount(b, G.A) >= 2 || legal(b, G.A).some(repMove));
+    const gc = hints && G.mode.id === "KBN" ? goodCorners(b, G.A) : [];
     bd.querySelectorAll(".sq").forEach(el => {
       const s = +el.dataset.s, t = targets.find(m => m.to === s);
       el.classList.toggle("sel", s === G.sel);
@@ -277,6 +325,7 @@
       el.classList.toggle("rep", !!(t && repMove(t)));
       el.classList.toggle("last", !!G.last && (G.last.from === s || G.last.to === s));
       el.classList.toggle("cage", cg.has(s) && !b[s]);
+      el.classList.toggle("goodc", gc.includes(s));
     });
     const alive = new Set();
     b.forEach((p, s) => {
@@ -287,27 +336,50 @@
       el.style.left = c * 12.5 + "%"; el.style.top = r * 12.5 + "%";
       el.classList.toggle("check", p.t === "K" && p.c === G.D && inCheck(b, G.D) && !G.over);
       el.classList.toggle("danger", hang.includes(s));
+      el.classList.toggle("fix", !!p.fix);
     });
     bd.querySelectorAll(".pc").forEach(el => { if (!alive.has(el.dataset.id) && !el.classList.contains("boom")) el.remove(); });
     $("#mv").textContent = G.moves;
     const hb = $("#hint");
     if (hints) {
       hb.classList.add("on");
-      hb.innerHTML = `Cușca regelui: <span class="big">${cg.size}</span> câmpuri.<br>Micșoreaz-o pas cu pas!`
+      const st = stepHTML(b);
+      hb.innerHTML = `Cușca regelui: <span class="big">${cg.size}</span> ${cg.size === 1 ? "câmp" : "câmpuri"}.${st ? "" : " Micșoreaz-o pas cu pas!"}` + st
         + (hang.length ? `<br><span style="color:var(--bad)">⚠️ Atenție! ${NAME[b[hang[0]].t]} poate fi luat de rege!</span>` : "")
         + (repNow ? `<div class="repwarn">🔁 <b>Atenție, repetare!</b> Te învârți pe loc – aceeași poziție a apărut deja de 2 ori.
             Dacă se repetă încă o dată, partida se termină <b>remiză</b> și jocul se oprește. Caută o mutare nouă!
             <small>Mutările care repetă poziția au cercul portocaliu.</small></div>` : "");
     } else hb.classList.remove("on");
   }
+  /* pasul matului potrivit poziției de pe tablă */
+  function stepHTML(b) {
+    const id = G.mode.id, dk = kingSq(b, G.D), box = (n, tot, t) => `<div class="stepbox"><span class="stepn">Pasul ${n}/${tot}</span> ${t}</div>`;
+    if (G.kind === "experiment") {
+      if (G.part === 1) return `<div class="stepbox">🔬 Încearcă să închizi regele în colț și să-i dai mat cu cei doi cai. Calculatorul se apără corect.${G.moves >= 10 ? " <b>Merge? Dacă te-ai convins, apasă „M-am convins!”.</b>" : ""}</div>`;
+      return `<div class="stepbox">🔬 Acum regele <b>greșește</b>: se duce singur spre colț. ${mateIn1(b, G.A) ? "<b>Ai mat dintr-o mutare – găsește-l!</b>" : "Dă-i șah cu un cal când e lângă colț!"}</div>`;
+    }
+    if (G.mode.fix) {
+      if (mateIn1(b, G.A)) return box(3, 3, STEPS.Q[2] + " <b>Matul e gata – găsește-l!</b>");
+      return onEdge(dk) ? box(2, 3, STEPS.Q[1]) : box(1, 3, STEPS.Q[0]);
+    }
+    if (id === "KBN") {
+      const d = Math.min(...goodCorners(b, G.A).map(c => cheb(dk, c)));
+      if (!onEdge(dk)) return box(1, 4, STEPS.BN[0] + " " + STEPS.BN[1]);
+      return d >= 3 ? box(3, 4, STEPS.BN[2]) : box(4, 4, STEPS.BN[3]);
+    }
+    return "";
+  }
   $("#game").addEventListener("click", e => {
     const t = e.target.closest("button");
-    if (t && t.dataset.act === "hints") { ui.hints = !ui.hints; if (ui.hints) G.hintsUsed = true; t.classList.toggle("on", ui.hints); save(); return render(); }
-    if (t && t.dataset.act === "giveup") { if (G && !G.over) finish("renunt"); return; }
+    if (t && t.dataset.act === "hints") {
+      ui.hints = !ui.hints; if (ui.hints) G.hintsUsed = true; t.classList.toggle("on", ui.hints); save();
+      document.documentElement.style.setProperty("--bs", boardSize() + "px"); return render();
+    }
+    if (t && t.dataset.act === "giveup") { if (G && !G.over) finish(G.kind === "experiment" && G.part === 1 ? "convins" : "renunt"); return; }
     const sq = e.target.closest(".sq"); if (!sq || !G || G.over || G.busy) return;
     const s = +sq.dataset.s, p = G.b[s];
     if (G.sel != null) { const m = legal(G.b, G.A).find(m => m.from === G.sel && m.to === s); if (m) return playerMove(m); }
-    G.sel = p && p.c === G.A ? (G.sel === s ? null : s) : null;
+    G.sel = p && p.c === G.A && !p.fix ? (G.sel === s ? null : s) : null;
     render();
   });
   function playerMove(m) {
@@ -318,12 +390,13 @@
     if (dm.length === 0) return finish(inCheck(G.b, G.D) ? "mat" : "pat");
     if (rep >= 3) return finish("repetare");
     if (inCheck(G.b, G.D)) sfx.check();
+    if (G.kind === "experiment" && G.moves >= (G.part === 1 ? 20 : 30)) return finish(G.part === 1 ? "convins" : "limita");
     if (G.moves >= 50) return finish("limita");
     G.busy = true;
     const game = G;
     setTimeout(() => {
       if (G !== game || G.over) return;
-      const d = defenderMove(G.b, G.D, G.rng);
+      const d = defenderMove(G.b, G.D, G.rng, {ajuta: G.kind === "experiment" && G.part === 2});
       const capEl = d.cap ? $(`.pc[data-id="${d.cap.id}"]`) : null;
       G.b = applyM(G.b, d); G.last = d; G.busy = false;
       if (capEl) { capEl.classList.add("boom"); setTimeout(() => capEl.remove(), 950); }
@@ -350,6 +423,7 @@
     if (result === "pat" || result === "repetare") { sfx.pat(); flash("grey"); bd.classList.add("pat", "shake"); }
     if (result === "pierdut") { sfx.boom(); flash("red"); bd.classList.add("shake"); }
     if (G.kind === "intrecere") return finishContestPosition(result, ms, cap);
+    if (G.kind === "experiment") return finishExperiment(result);
 
     const p = ui.player, prior = practice();
     const prevRec = recordFor(G.mode.id, p.group), prevPB = bestClean(G.mode.id, a => a.pid === p.pid);
@@ -387,6 +461,36 @@
       if (star) animateStars(m, star.res.inainte, star.awards.reduce((a, x) => a + x.value, 0), 1400);
     }, 900);
   }
+  /* ---------- experimentul cu 2 cai ---------- */
+  function miniBoard(spec, marks = {}) {
+    let h = "";
+    for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) {
+      const n = "abcdefgh"[f] + (r + 1), v = spec[n], mk = marks[n];
+      h += `<div class="msq ${(f + r) % 2 ? "l" : "d"} ${mk || ""}">${v ? pieceSVG(v[1], v[0]) : ""}${mk === "ok" ? "<i>✅</i>" : mk === "bad" ? "<i>❌</i>" : ""}</div>`;
+    }
+    return `<div class="mini">${h}</div>`;
+  }
+  function expHTML() {
+    return `<div class="diag"><div>${miniBoard({a8: "bK", c7: "wK", c6: "wN", d5: "wN"}, {a8: "pat"})}
+        <p><b>1. Închis de tot = PAT.</b> Negrul e la mutare: regele din a8 nu are niciun câmp liber, dar nu e în șah. Este <b>pat</b>, remiză – nu mai apuci să dai șah cu calul.</p></div>
+      <div>${miniBoard({b8: "bK", b6: "wK", d7: "wN", e6: "wN"}, {a8: "bad", c8: "ok"})}
+        <p><b>2. Mat doar dacă regele greșește.</b> Calul a dat șah din d7. Dacă regele merge în <b>a8 ❌</b>, Cc7 e mat. Dar regele poate merge în <b>c8 ✅</b> și scapă. Un apărător atent alege mereu c8.</p></div></div>
+      <p class="concl">De aceea, <b>cu doi cai matul nu se poate forța</b>: regele scapă de fiecare dată, dacă nu greșește.</p>`;
+  }
+  function finishExperiment(result) {
+
+    const again = `<div class="btns">${G.part === 1 ? `<button class="pri" data-act="exp2">▶ Partea 2: regele greșește</button>` : `<button class="pri" data-act="exp2">🔁 Încă o dată</button>`}<button data-act="other">🎯 Înapoi la maturi</button></div>`;
+    const why = {pat: "A ieșit <b>pat</b> – exact capcana cu doi cai!", repetare: "Poziția s-a repetat de 3 ori – regele se tot învârte și scapă.",
+      pierdut: "Regele a luat un cal – acum matul nu mai e posibil deloc.", limita: "Ai făcut 30 de mutări – regele nu a mai greșit."}[result] || "";
+    let html;
+    if (G.part === 1) html = result === "mat"
+      ? `<div class="res wide mat"><div class="em">😲</div><h1>Mat?!</h1><p>Ai găsit o poziție foarte rară în care regele nu mai avea scăpare. De obicei, cu doi cai regele scapă mereu:</p>${expHTML()}${again}</div>`
+      : `<div class="res wide"><div class="em">🔬</div><h1 style="color:var(--accent)">Ce s-a întâmplat?</h1>${why ? `<p>${why}</p>` : ""}${expHTML()}${again}</div>`;
+    else html = result === "mat"
+      ? `<div class="res wide mat"><div class="em">🎉</div><h1>MAT!</h1><p>Bravo! Dar matul a ieșit <b>doar pentru că regele a greșit</b> și a intrat singur în colț.<br>Un apărător atent ar fi scăpat – de aceea, cu doi cai, matul nu se poate forța.</p>${again}</div>`
+      : `<div class="res wide"><div class="em">🔬</div><h1 style="color:var(--accent)">Regele a scăpat</h1>${why ? `<p>${why}</p>` : ""}${expHTML()}${again}</div>`;
+    setTimeout(() => modal(html), result === "mat" ? 900 : 500);
+  }
   function animateStars(m, from, n, delay) {
     const av = m.querySelector("#sav"), tot = m.querySelector("#stot"); if (!av) return;
     flyStars(av, n, j => { tot.innerHTML = `⭐ ${from + j + 1} <span class="plus">+${j + 1}</span>`; }, delay);
@@ -410,6 +514,7 @@
       const t = e.target.closest("button"); if (!t || !t.dataset.act) return;
       const act = t.dataset.act;
       if (act === "again") return startPractice();
+      if (act === "exp2") return startExperiment(2);
       if (act === "next") return beginContestPosition(G.run, G.run.idx + 1);
       m.remove();
       if (act === "other") show("start");
@@ -531,7 +636,7 @@
       <div class="lbtop"><h2 style="margin:0">🏆 Clasament</h2><span class="sp"></span>
         <div class="tabs" style="margin:0"><button data-scope="today" class="${ui.lbScope === "today" ? "on" : ""}">Azi</button><button data-scope="all" class="${ui.lbScope === "all" ? "on" : ""}">Toate timpurile</button></div></div>
       ${MOD === "cerc" ? `<div class="tabs">${groups().map(g => `<button data-lg="${g.id}" class="${ui.lbGroup === g.id ? "on" : ""}">${esc(g.name)}</button>`).join("")}</div>` : ""}
-      <div class="tabs">${MODES.map(m => `<button data-lbm="${m.id}" class="${ui.lbMode === m.id ? "on" : ""}">${ico(m)} ${m.label}</button>`).join("")}</div>
+      <div class="tabs">${ACTIVE.map(modeById).map(m => `<button data-lbm="${m.id}" class="${ui.lbMode === m.id ? "on" : ""}">${ico(m)} ${m.label}</button>`).join("")}</div>
       ${rows.length ? `<table><tr><th></th><th>${MOD === "cerc" ? "Copilul" : "Numele"}</th><th>Cel mai bun timp</th><th>Mutări</th><th>Încercări</th></tr>
         ${rows.map((r, i) => `<tr><td class="rk">${MEDAL[i] || i + 1}</td><td><span class="av" style="background:${r.a.color}33">${r.a.avatar}</span>${esc(r.a.name)}${r.a.hints ? " 💡" : ""}</td>
           <td class="t">${fmt(r.a.ms)}</td><td>${r.a.moves}</td><td>${r.tries}</td></tr>`).join("")}</table>`

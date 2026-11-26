@@ -1,8 +1,9 @@
 /* Mat la viteză – clasamente și reguli pentru stele (fără DOM). */
 (function (root) {
   const Sah = typeof module !== "undefined" && module.exports ? require("./sah.js") : root.Sah;
-  /* pragurile „Fulger” (ms). 23.11.2026: +5 s la cele 4 maturi cu piese grele. */
-  const PRAG = {KQ: 25000, KQR: 15000, KRR: 20000, KR: 35000, KQB: 20000, KQN: 20000, KRB: 30000, KRN: 30000, KBB: 60000};
+  /* pragurile „Fulger” (ms). 23.11.2026: +5 s la cele 4 maturi cu piese grele.
+     26.11.2026: Damă + Nebun 30 s și Damă + Cal 40 s (regele în colț), Nebun + Cal 2 min. Experimentul cu 2 cai nu are prag. */
+  const PRAG = {KQ: 25000, KQR: 15000, KRR: 20000, KR: 35000, QB: 30000, QN: 40000, KBB: 60000, KBN: 120000};
   const PRAG_V1 = {KQ: 20000, KQR: 10000, KRR: 15000, KR: 30000}; // pragurile vechi, pentru încercările de dinainte
   /* a primit deja Fulger la încercarea a? (încercările noi au câmpul „fulger”; cele vechi se judecă după pragul vechi) */
   const hadFulger = a => "fulger" in a ? a.fulger === true : clean(a) && a.ms < (PRAG_V1[a.mode] || 0);

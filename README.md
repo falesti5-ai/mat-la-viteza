@@ -3,12 +3,15 @@
 Antrenament la mat pentru cercul de șah:
 
 - piese grele: Rege + Turn, Rege + 2 Turnuri, Rege + Damă, Rege + Damă + Turn;
-- piesă grea + piesă ușoară: Damă + Nebun, Damă + Cal, Turn + Nebun, Turn + Cal;
-- doar piese ușoare: Rege + 2 Nebuni.
+- damă + piesă ușoară, cu regele înghețat în colț: Damă + Nebun, Damă + Cal;
+- doar piese ușoare: Rege + 2 Nebuni, Rege + Nebun + Cal;
+- experimentul „Rege + 2 Cai”: de ce matul nu se poate forța.
 
 - Poziție nouă la fiecare încercare, culoarea pieselor la întâmplare.
 - Cronometru, numărul de mutări, recorduri personale.
 - Indicii pentru începători: „cușca” regelui și piesele în pericol.
+
+Pe telefon merge și fără internet după prima deschidere (sw.js). Fontul Nunito este inclus (SIL Open Font License, `fonts/OFL.txt`).
 
 **Joacă:** https://falesti5-ai.github.io/mat-la-viteza/
 

@@ -1,16 +1,24 @@
 /* Mat la viteză – logica de șah (regi, dame, turnuri, nebuni și cai; fără pioni). Tabla: 64 de câmpuri, a1 = 0, h8 = 63. */
 (function (root) {
-  /* grp: grele / mixt (grea + ușoară) / usoare; stele = câte stele dă primul mat (după dificultate) */
+  /* grp: grele / mixt (damă + piesă ușoară) / usoare / experiment; stele = câte stele dă primul mat (după dificultate);
+     fix: regele atacantului stă înghețat într-un colț (matul se dă fără ajutorul lui) */
   const MODES = [
     {id: "KR",  label: "Rege + Turn",         ic: "♜",  pieces: ["R"],      minCage: 14, grp: "grele",  stele: 1},
     {id: "KRR", label: "Rege + 2 Turnuri",    ic: "♜♜", pieces: ["R", "R"], minCage: 8,  grp: "grele",  stele: 1},
     {id: "KQ",  label: "Rege + Damă",         ic: "♛",  pieces: ["Q"],      minCage: 10, grp: "grele",  stele: 1},
     {id: "KQR", label: "Rege + Damă + Turn",  ic: "♛♜", pieces: ["Q", "R"], minCage: 6,  grp: "grele",  stele: 1},
-    {id: "KQB", label: "Rege + Damă + Nebun", ic: "♛♝", pieces: ["Q", "B"], minCage: 8,  grp: "mixt",   stele: 1},
-    {id: "KQN", label: "Rege + Damă + Cal",   ic: "♛♞", pieces: ["Q", "N"], minCage: 8,  grp: "mixt",   stele: 1},
-    {id: "KRB", label: "Rege + Turn + Nebun", ic: "♜♝", pieces: ["R", "B"], minCage: 12, grp: "mixt",   stele: 2},
-    {id: "KRN", label: "Rege + Turn + Cal",   ic: "♜♞", pieces: ["R", "N"], minCage: 12, grp: "mixt",   stele: 2},
+    {id: "QB",  label: "Damă + Nebun 🔒", ic: "♛♝", pieces: ["Q", "B"], minCage: 14, grp: "mixt", stele: 2, fix: true},
+    {id: "QN",  label: "Damă + Cal 🔒",   ic: "♛♞", pieces: ["Q", "N"], minCage: 14, grp: "mixt", stele: 2, fix: true},
     {id: "KBB", label: "Rege + 2 Nebuni",     ic: "♝♝", pieces: ["B", "B"], minCage: 14, grp: "usoare", stele: 2},
+    {id: "KBN", label: "Rege + Nebun + Cal",  ic: "♝♞", pieces: ["B", "N"], minCage: 16, grp: "usoare", stele: 5},
+    {id: "KNN", label: "Rege + 2 Cai",        ic: "♞♞", pieces: ["N", "N"], minCage: 16, grp: "experiment", stele: 0},
+  ];
+  /* tipuri scoase (rămân doar pentru numele din istoric) */
+  const OLD_MODES = [
+    {id: "KQB", label: "Rege + Damă + Nebun", ic: "♛♝", pieces: ["Q", "B"], minCage: 8,  grp: "vechi", stele: 1},
+    {id: "KQN", label: "Rege + Damă + Cal",   ic: "♛♞", pieces: ["Q", "N"], minCage: 8,  grp: "vechi", stele: 1},
+    {id: "KRB", label: "Rege + Turn + Nebun", ic: "♜♝", pieces: ["R", "B"], minCage: 12, grp: "vechi", stele: 2},
+    {id: "KRN", label: "Rege + Turn + Cal",   ic: "♜♞", pieces: ["R", "N"], minCage: 12, grp: "vechi", stele: 2},
   ];
   const F = s => s & 7, R = s => s >> 3, onB = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
   const KD = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]], RD = [[1,0],[-1,0],[0,1],[0,-1]], BD = [[1,1],[1,-1],[-1,1],[-1,-1]];
@@ -38,7 +46,7 @@
   function legal(b, c) {
     const res = [];
     for (let i = 0; i < 64; i++) {
-      const p = b[i]; if (!p || p.c !== c) continue;
+      const p = b[i]; if (!p || p.c !== c || p.fix) continue; // regele înghețat nu mută
       for (const t of attacksFrom(b, i)) {
         const q = b[t]; if (q && (q.c === c || q.t === "K")) continue;
         const m = {from: i, to: t, cap: q || null};
@@ -74,6 +82,20 @@
     return attacksFrom(b, dk).filter(s => b[s] && b[s].c === A && b[s].t !== "K" && !attacked(b, s, A));
   }
 
+  const CORNERS = [0, 7, 56, 63];
+  /* colțurile în care se poate da mat cu nebun și cal: cele de culoarea nebunului */
+  function goodCorners(b, A) {
+    const bs = b.findIndex(p => p && p.c === A && p.t === "B");
+    if (bs < 0) return [];
+    return CORNERS.filter(c => (F(c) + R(c)) % 2 === (F(bs) + R(bs)) % 2);
+  }
+  const onEdge = s => F(s) === 0 || F(s) === 7 || R(s) === 0 || R(s) === 7;
+  /* există o mutare a atacantului care dă mat? (întoarce mutarea sau null) */
+  function mateIn1(b, A) {
+    for (const m of legal(b, A)) if (isMate(applyM(b, m), opp(A))) return m;
+    return null;
+  }
+
   function mulberry32(a) {
     return function () {
       a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -90,7 +112,11 @@
       const b = Array(64).fill(null), used = new Set();
       const rnd = () => { let s; do { s = rng() * 64 | 0; } while (used.has(s)); used.add(s); return s; };
       const dk = rnd(); b[dk] = {id: "dk", t: "K", c: D};
-      const ak = rnd(); b[ak] = {id: "ak", t: "K", c: A};
+      let ak;
+      if (mode.fix) { ak = CORNERS[rng() * 4 | 0]; if (used.has(ak)) continue; used.add(ak); }
+      else ak = rnd();
+      b[ak] = {id: "ak", t: "K", c: A};
+      if (mode.fix) { b[ak].fix = true; if (cheb(dk, ak) < 4) continue; } // regele advers pornește departe de regele înghețat
       mode.pieces.forEach((t, i) => { b[rnd()] = {id: "a" + i, t, c: A}; });
       if (cheb(dk, ak) < 2 || inCheck(b, D)) continue;
       // doi nebuni: trebuie să fie pe câmpuri de culori diferite, altfel matul e imposibil
@@ -106,25 +132,42 @@
   }
 
   /* apărarea: ia piesa neapărată; altfel caută spațiu și evită matul imediat.
-     rng === null → deterministă (pentru întrecere). */
-  function defenderMove(b, D, rng = Math.random) {
+     Nebun + Cal: fuge de colțurile de culoarea nebunului. Regele atacantului înghețat: stă departe de el.
+     rng === null → deterministă (pentru întrecere).
+     opts.ajuta: apărătorul „greșește” (experimentul cu 2 cai): intră singur în matul dintr-o mutare și caută colțul. */
+  function defenderMove(b, D, rng = Math.random, opts = {}) {
     const ms = legal(b, D), A = opp(D);
-    const cap = ms.find(m => m.cap);
-    if (cap) return cap;
+    if (opts.ajuta) {
+      const bad = ms.find(m => !m.cap && mateIn1(applyM(b, m), A));
+      if (bad) return bad;
+    } else {
+      const cap = ms.find(m => m.cap);
+      if (cap) return cap;
+    }
+    const types = b.filter(p => p && p.c === A && p.t !== "K").map(p => p.t).sort().join("");
+    const gc = types === "BN" ? goodCorners(b, A) : [];
+    const ak = kingSq(b, A), frozen = ak >= 0 && b[ak].fix;
     let best = null, bs = -1e9;
     for (const m of ms) {
+      if (opts.ajuta && m.cap) continue;
       const nb = applyM(b, m);
-      let pen = 0;
-      for (const am of legal(nb, A)) if (isMate(applyM(nb, am), D)) { pen = -1000; break; }
-      const threat = hanging(nb, A).length ? 6 : 0;
       const center = -(Math.abs(3.5 - F(m.to)) + Math.abs(3.5 - R(m.to)));
-      const sc = cage(nb, D).size * 3 + center + threat + pen + (rng ? rng() * 1.5 : 0);
+      let sc;
+      if (opts.ajuta) sc = -center * 2 + (rng ? rng() * 1.5 : 0); // merge spre colț
+      else {
+        const pen = mateIn1(nb, A) ? -1000 : 0;
+        const threat = hanging(nb, A).length ? 6 : 0;
+        const corner = gc.length ? 5 * Math.min(...gc.map(c => cheb(m.to, c))) : 0;
+        const away = frozen ? 2 * Math.min(cheb(m.to, ak), 4) : 0;
+        sc = cage(nb, D).size * 3 + center + threat + pen + corner + away + (rng ? rng() * 1.5 : 0);
+      }
       if (sc > bs) { bs = sc; best = m; }
     }
-    return best;
+    return best || ms[0];
   }
 
-  const api = {MODES, F, R, opp, cheb, attacksFrom, attacked, kingSq, inCheck, applyM, legal, isMate, posKey, cage, hanging, mulberry32, genPosition, defenderMove,
-    modeById: id => MODES.find(m => m.id === id)};
+  const api = {MODES, OLD_MODES, CORNERS, F, R, opp, cheb, attacksFrom, attacked, kingSq, inCheck, applyM, legal, isMate, mateIn1, posKey, cage, hanging,
+    goodCorners, onEdge, mulberry32, genPosition, defenderMove,
+    modeById: id => MODES.find(m => m.id === id) || OLD_MODES.find(m => m.id === id)};
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.Sah = api;
 })(this);

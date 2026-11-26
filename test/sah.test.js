@@ -98,3 +98,40 @@ test("doi nebuni sunt mereu pe culori diferite", () => {
     assert.strictEqual(c.length, 2); assert.notStrictEqual(c[0], c[1]);
   }
 });
+
+test("regele înghețat stă în colț și nu mută niciodată", () => {
+  for (const id of ["QB", "QN"]) for (let i = 0; i < 100; i++) {
+    const {b, A} = S.genPosition(S.modeById(id));
+    const k = S.kingSq(b, A);
+    assert.ok(S.CORNERS.includes(k) && b[k].fix);
+    assert.ok(S.legal(b, A).every(m => m.from !== k));
+  }
+});
+test("tipurile scoase rămân doar pentru numele din istoric", () => {
+  assert.ok(!S.MODES.some(m => ["KRB", "KRN", "KQB", "KQN"].includes(m.id)));
+  assert.strictEqual(S.modeById("KRB").label, "Rege + Turn + Nebun");
+});
+test("Nebun + Cal: apărarea fuge de colțul bun", () => {
+  // nebunul alb pe câmp alb (f1) → colțurile bune sunt h1 și a8
+  const b = board({b2: "bK", e4: "wK", f1: "wB", c4: "wN"});
+  assert.deepStrictEqual(S.goodCorners(b, "w").sort((x, y) => x - y), [sq("h1"), sq("a8")].sort((x, y) => x - y));
+  const m = S.defenderMove(b, "b", null);
+  const toA1 = S.cheb(m.to, sq("a1")), fromA1 = S.cheb(sq("b2"), sq("a1"));
+  assert.ok(toA1 <= fromA1 || [sq("a1"), sq("b1"), sq("a2"), sq("c1"), sq("a3"), sq("c2")].includes(m.to), "rămâne lângă colțul greșit a1");
+});
+test("experimentul cu 2 cai: pat și matul doar dacă regele greșește", () => {
+  const pat = board({a8: "bK", c7: "wK", c6: "wN", d5: "wN"});
+  assert.strictEqual(S.legal(pat, "b").length, 0); assert.strictEqual(S.inCheck(pat, "b"), false);
+  const b = board({b8: "bK", b6: "wK", d7: "wN", e6: "wN"});
+  const to = S.legal(b, "b").map(m => m.to).sort((x, y) => x - y);
+  assert.deepStrictEqual(to, [sq("a8"), sq("c8")].sort((x, y) => x - y));
+  assert.ok(S.mateIn1(S.applyM(b, {from: sq("b8"), to: sq("a8")}), "w"));
+  assert.ok(!S.mateIn1(S.applyM(b, {from: sq("b8"), to: sq("c8")}), "w"));
+  // apărarea corectă alege c8, cea „care greșește” alege a8
+  assert.strictEqual(S.defenderMove(b, "b", null).to, sq("c8"));
+  assert.strictEqual(S.defenderMove(b, "b", null, {ajuta: true}).to, sq("a8"));
+  // poziția de start a părții 2: albul dă șah Cd7 (din f6)
+  const p2 = board({b8: "bK", b6: "wK", e6: "wN", f6: "wN"});
+  assert.ok(S.legal(p2, "w").some(m => m.from === sq("f6") && m.to === sq("d7")));
+  assert.ok(!S.inCheck(p2, "b"));
+});

@@ -51,12 +51,14 @@ test("Fulger după mărirea pragului: cine a avut 22 s (sub pragul vechi de 20 s
   assert.ok(!notes(G.starsForAttempt(att({ms: 17000}), [att({ms: 24000, fulger: true})])).includes("Fulger"));
   assert.ok(notes(G.starsForAttempt(att({ms: 17000}), [att({ms: 24000, fulger: false})])).includes("Fulger"));
 });
-test("primul mat la tipurile medii dă 2 stele", () => {
-  const aw = G.starsForAttempt(att({mode: "KRB", ms: 90000}), []);
+test("primul mat: +2 la tipurile mai grele, +5 la Nebun + Cal", () => {
+  const aw = G.starsForAttempt(att({mode: "KBB", ms: 90000}), []);
   assert.deepStrictEqual(aw.map(a => [a.note.split(" –")[0], a.value]), [["Primul mat", 2]]);
-  assert.strictEqual(G.starsForAttempt(att({mode: "KBB", ms: 90000}), [])[0].value, 2);
-  assert.strictEqual(G.starsForAttempt(att({mode: "KQN", ms: 90000}), [])[0].value, 1);
-  assert.ok(Object.keys(G.PRAG).length === 9);
+  assert.strictEqual(G.starsForAttempt(att({mode: "QB", ms: 90000}), [])[0].value, 2);
+  assert.strictEqual(G.starsForAttempt(att({mode: "QN", ms: 90000}), [])[0].value, 2);
+  assert.strictEqual(G.starsForAttempt(att({mode: "KBN", ms: 900000}), [])[0].value, 5);
+  assert.strictEqual(G.starsForAttempt(att({mode: "KR", ms: 90000}), [])[0].value, 1);
+  assert.deepStrictEqual(G.PRAG, {KQ: 25000, KQR: 15000, KRR: 20000, KR: 35000, QB: 30000, QN: 40000, KBB: 60000, KBN: 120000});
 });
 test("Fulger o singură dată pe tip", () => {
   const h = [att({ms: 15000})];

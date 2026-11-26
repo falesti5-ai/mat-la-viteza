@@ -1,3 +1,8 @@
+/* fontul Nunito inclus în aplicație (SIL Open Font License, vezi fonts/OFL.txt) – merge și fără internet */
+@font-face{font-family:Nunito;font-style:normal;font-weight:200 1000;font-display:swap;src:url(fonts/nunito-latin-ext.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Nunito;font-style:normal;font-weight:200 1000;font-display:swap;src:url(fonts/nunito-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{
   --bg1:#e8f3ff; --bg2:#f5ecff; --ink:#1f2340; --muted:#5d6385; --card:#ffffff;
   --accent:#6c4cff; --gold:#ffb703; --ok:#1fae7a; --bad:#ef476f; --pat:#6b7fa8;
@@ -236,4 +241,45 @@ td.sm{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
   .res{padding:22px 18px}.res h1{font-size:40px}.res .em{font-size:64px}
   table{font-size:16px} td.t{font-size:18px} td .av{width:32px;height:32px;font-size:18px}
   .podium{transform:scale(.6);transform-origin:top center;margin-bottom:-140px}
+}
+
+/* 26.11.2026: regele înghețat, colțul bun, pașii matului, experimentul cu 2 cai */
+.pc.fix::after{content:"🔒";position:absolute;right:2%;bottom:2%;font-size:calc(var(--bs)/26);line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.sq.goodc::after{content:"";position:absolute;inset:0;background:rgba(255,183,3,.5);box-shadow:inset 0 0 0 4px #ffb703}
+.stepbox{margin-top:8px;background:#eef6ff;border-left:5px solid var(--accent);border-radius:12px;padding:8px 10px;color:#283058;font-size:15px;line-height:1.35}
+.stepn{display:inline-block;background:var(--accent);color:#fff;border-radius:99px;padding:1px 9px;font-size:13px;font-weight:900;margin-right:2px}
+.expbtn{display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;background:#eefaf4;border:3px dashed #5bd1a0;border-radius:18px;padding:12px 14px;text-align:left}
+.expbtn .ic{font-size:30px}.expbtn b{font-size:17px}
+.diag{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:6px 0 8px;text-align:left}
+.diag > div{width:min(330px,88vw)}
+.diag p{font-size:16px !important;margin:8px 0 !important}
+.mini{display:grid;grid-template-columns:repeat(8,1fr);width:min(240px,70vw);aspect-ratio:1;margin:0 auto;border:6px solid #4a3b2a;border-radius:8px;overflow:hidden}
+.msq{position:relative;display:grid;place-items:center}
+.msq.l{background:var(--light)}.msq.d{background:var(--dark)}
+.msq svg{width:92%;height:92%}
+.msq.pat{box-shadow:inset 0 0 0 4px #6b7fa8}
+.msq.ok{background:#9be7c4}.msq.bad{background:#ffb3c1}
+.msq i{position:absolute;font-style:normal;font-size:16px;line-height:1}
+.concl{background:#fff8e1;border-radius:14px;padding:10px 14px;color:#5a3d00 !important}
+
+/* telefon: timpul sus, tabla, indiciile imediat sub tablă */
+@media (max-width:700px){
+  .game{gap:8px}
+  .side{display:contents}
+  .side > *{width:100%}
+  .game > .boardwrap{order:3}
+  .side .steps{order:1}
+  .side .color{order:2;font-size:14px;padding:5px;border-width:2px}
+  .side .tcard{order:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px}
+  .side .tcard .timer{font-size:34px}
+  .side .tcard .stats{margin:0 !important;gap:16px}
+  .side .tcard .stats b{font-size:20px}
+  .side .tcard .rec{display:none}
+  .side .hintbox{order:4;font-size:14px;padding:8px 10px}
+  .side .hintbox .big{font-size:20px}
+  .repwarn{margin-top:6px;padding:6px 8px}.repwarn small{display:none}
+  .stepbox{font-size:13.5px;padding:6px 8px}
+  .side .switch{order:5;margin-top:0}
+  .side .player{order:6}
+  .side .giveup{order:7}
 }

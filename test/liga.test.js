@@ -4,7 +4,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Liga = require("../liga.js");
 
-const SRC = fs.readFileSync(path.join(__dirname, "..", "..", "liga-stelelor-copie-2026-11-19.json"), "utf8");
+// cea mai nouă copie a Ligii din folderul „clasament” (copiile nu intră în depozit)
+const DIR = path.join(__dirname, "..", "..");
+const COPIE = fs.readdirSync(DIR).filter(f => /^liga-stelelor-copie-.*\.json$/.test(f)).sort().pop();
+const SRC = fs.readFileSync(path.join(DIR, COPIE), "utf8");
 const store = (txt = SRC) => { const m = {"ligaStelelor.v1": txt}; return {getItem: k => k in m ? m[k] : null, setItem: (k, v) => { m[k] = String(v); }, m}; };
 const NOW = 1795300000000;
 
