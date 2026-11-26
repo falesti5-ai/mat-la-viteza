@@ -2,3 +2,4 @@
 *.json
 _*
 node_modules/
+*.csv

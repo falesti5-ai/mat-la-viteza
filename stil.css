@@ -203,6 +203,9 @@ td.t{font-variant-numeric:tabular-nums;font-weight:900;font-size:22px}
 td.sm{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
 .award{background:linear-gradient(90deg,#ffb703,#ff7a59);color:#fff;font-weight:900;font-size:19px;padding:12px 18px;border-radius:16px;box-shadow:0 6px 0 #c9631d}
 .small{background:#eef0ff;font-weight:800;padding:10px 14px;border-radius:12px}
+.bkp{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff4d6;border-radius:14px;padding:10px 14px;font-weight:700;color:#7a5200;font-size:15px;margin:10px 0;text-align:left}
+.bkp span{flex:1;min-width:220px}
+.note.ok{color:#17784a}
 .small.danger{background:#ffe3ea;color:#a3123a}
 .empty{text-align:center;color:var(--muted);padding:26px;font-size:18px;font-weight:700}
 .podium{display:flex;align-items:flex-end;justify-content:center;gap:16px;margin:26px 0 10px;min-height:360px}

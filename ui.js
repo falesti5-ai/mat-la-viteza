@@ -518,6 +518,7 @@
       if (act === "again") return startPractice();
       if (act === "exp2") return startExperiment(2);
       if (act === "next") return beginContestPosition(G.run, G.run.idx + 1);
+      if (act === "backup") return;
       m.remove();
       if (act === "other") show("start");
       if (act === "lb") show("lb");
@@ -621,6 +622,7 @@
         <div class="tot" id="ptot${i}">${r ? "⭐ " + r.inainte : `<span class="note">nu e în Ligă</span>`}</div>
         <div class="blk" style="animation-delay:${(2 - i) * .2}s">${i + 1}</div></div>`; }).join("")}</div>
       ${err ? `<p class="warn">Stelele nu s-au putut scrie în Ligă: ${esc(err)}</p>` : awards.length ? `<p class="note f5">Stelele au intrat în Liga Stelelor („⏱️ Mat la viteză – întrecere”). Dacă Liga e deschisă în alt tab, apăsați F5 în ea.</p>` : ""}
+      ${backupHTML(true)}
       <div class="btns"><button class="pri" data-act="contest">Gata</button></div></div>`);
     sfx.record(); setTimeout(() => confetti(200, GOLD), 900);
     [2, 1, 0].forEach((i, k) => {
@@ -656,10 +658,14 @@
         <div class="lbtop" style="margin-top:14px"><span class="sp"></span>${given ? `<span class="note">✅ Steaua săptămânii a fost dată: ${esc(given.name)}</span>`
           : `<button class="award" data-act="prog" ${prog.length ? "" : "disabled"}>⭐ +1 pentru ${prog.length ? esc(prog[0].name) : "…"}</button>`}</div></div>`;
     }
+    html += `<div class="card"><h2>💾 Păstrarea rezultatelor</h2>
+      ${MOD === "cerc" ? `<p class="note">Copia de rezervă din Liga Stelelor (⚙️ Setări → 💾 Date) păstrează acum și rezultatele de aici: toate încercările, timpii, recordurile și întrecerile. Puteți salva aceeași copie și de aici.</p>${backupHTML(false)}` : ""}
+      <div class="lbtop" style="margin:12px 0 0"><span class="note" style="margin:0">Tabel cu recordurile fiecărui copil și rezultatele întrecerilor, de deschis în Excel.</span><span class="sp"></span>
+        <button class="small" data-act="csv">📊 Recordurile în Excel</button></div></div>`;
     $("#lb").innerHTML = html + "</div>";
   }
   $("#lb").addEventListener("click", e => {
-    const t = e.target.closest("button"); if (!t) return;
+    const t = e.target.closest("button"); if (!t || t.dataset.act === "backup" || t.dataset.act === "csv") return; // le tratează document
     if (t.dataset.scope) ui.lbScope = t.dataset.scope;
     if (t.dataset.lbm) ui.lbMode = t.dataset.lbm;
     if (t.dataset.lg) ui.lbGroup = t.dataset.lg;
@@ -683,8 +689,42 @@
     save(); renderLB();
   });
 
+  /* ---------- copia de rezervă (aceeași ca în Liga) și tabelul pentru Excel ---------- */
+  const cate = (n, unu, multe) => n === 1 ? `1 ${unu}` : `${n}${n % 100 >= 20 || (n && n % 100 === 0) ? " de" : ""} ${multe}`;
+  function backupHTML(compact) {
+    const n = Copie.noi(localStorage), la = n.la ? `${Copie.zi(n.la)}, ${Copie.ora(n.la)}` : "";
+    if (!n.rezultate && !n.stele) return compact ? "" : `<p class="note">✅ Copia de rezervă e la zi (ultima: ${la || "—"}).</p>`;
+    const ce = [n.rezultate ? cate(n.rezultate, "rezultat nou", "rezultate noi") + " la Mat la viteză" : "", n.stele ? cate(n.stele, "înregistrare nouă", "înregistrări noi") + " în Ligă" : ""].filter(Boolean).join(" și ");
+    return `<div class="bkp"><span>💾 ${la ? `De la ultima copie de rezervă (${la}): <b>${ce}</b>.` : `Încă nu este o copie de rezervă cu rezultatele de la Mat la viteză.`} Nu uitați s-o salvați!</span>
+      <button class="small" data-act="backup">💾 Salvează copia acum</button></div>`;
+  }
+  function saveBackup(btn) {
+    const c = Copie.faCopie(localStorage);
+    if (!c) return alert("Nu am găsit datele Ligii Stelelor în acest browser.");
+    Copie.descarca(c.nume, c.text, "application/json");
+    const box = btn && btn.closest(".bkp");
+    if (box) box.outerHTML = `<p class="note ok">✅ Copia „${c.nume}” (stelele + ${cate(c.rezultate, "rezultat", "rezultate")} la Mat la viteză) e în Descărcări. Păstrați-o pe stick sau în Google Drive.</p>`;
+  }
+  document.addEventListener("click", e => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.act === "backup") saveBackup(t);
+    if (t.dataset.act === "csv") Copie.descarca(`mat-la-viteza-recorduri-${Copie.ziIso(Date.now())}.csv`, Copie.csv(db, liga), "text/csv;charset=utf-8");
+  });
+  /* la închiderea paginii: browserul întreabă dacă sunt rezultate fără copie de rezervă */
+  addEventListener("beforeunload", e => {
+    if (MOD !== "cerc") return;
+    const n = Copie.noi(localStorage);
+    if (n.rezultate) { e.preventDefault(); e.returnValue = ""; }
+  });
+
   addEventListener("resize", () => { if (G && $("#board")) document.documentElement.style.setProperty("--bs", boardSize() + "px"); });
-  addEventListener("storage", e => { if (e.key === Liga.KEY) refreshLiga(); });
+  addEventListener("storage", e => {
+    if (e.key === Liga.KEY) refreshLiga();
+    if (e.key === KEY && e.newValue) { // copia încărcată în Liga sau alt tab cu Mat la viteză: recitim rezultatele
+      try { const s = JSON.parse(e.newValue); if (s && s.attempts) db = Object.assign({attempts: [], contests: [], awardsLog: []}, s); } catch (err) {}
+    }
+    if ((e.key === KEY || e.key === Copie.KEYS.copieLa) && $("#lb").classList.contains("on")) renderLB();
+  });
   window.__mlv = {get G() { return G; }, get db() { return db; }}; // pentru verificări
   show("start");
 })();

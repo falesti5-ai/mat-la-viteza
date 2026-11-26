@@ -1,9 +1,9 @@
 /* Mat la viteză – lucrul fără internet pe telefon (doar pe site, nu din fișier).
    La fiecare versiune nouă se schimbă VER și ?v= din index.html (testul test/offline.test.js verifică potrivirea). */
-const VER = "mlv-2026112603";
+const VER = "mlv-2026112702";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable.png", "apple-touch-icon.png",
   "fonts/nunito-latin.woff2", "fonts/nunito-latin-ext.woff2",
-  "stil.css?v=2026112603", "sah.js?v=2026112603", "reguli.js?v=2026112603", "liga.js?v=2026112603", "efecte.js?v=2026112603", "qr.js?v=2026112603", "ui.js?v=2026112603"];
+  "stil.css?v=2026112702", "sah.js?v=2026112702", "reguli.js?v=2026112702", "liga.js?v=2026112702", "efecte.js?v=2026112702", "qr.js?v=2026112702", "copie.js?v=2026112702", "ui.js?v=2026112702"];
 
 self.addEventListener("install", e => { e.waitUntil(caches.open(VER).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
