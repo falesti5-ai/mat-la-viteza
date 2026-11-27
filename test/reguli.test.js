@@ -112,3 +112,23 @@ test("clasamentul de antrenament: cel mai bun timp și numărul de încercări",
   const r = G.ranking(list, "KQ", "today", NOW);
   assert.deepStrictEqual(r.map(x => [x.a.pid, x.a.ms, x.tries]), [["ana", 30000, 3], ["b", 40000, 1]]);
 });
+
+test("timpii se compară la zecimi, cum se văd pe ecran (27.11.2026)", () => {
+  // recordul grupei 0:44.1 (44 180 ms al lui Ion); Ana face 44 120 ms → tot 0:44.1: egal, nu record
+  const ion = att({pid: "ion", sid: "ion", name: "Ion", ms: 44180, ts: NOW - 5000});
+  const h = [att({ms: 50000, ts: NOW - 9000}), ion];
+  assert.ok(!notes(G.starsForAttempt(att({ms: 44120}), h)).includes("Record nou al grupei"));
+  assert.ok(notes(G.starsForAttempt(att({ms: 44099}), h)).includes("Record nou al grupei"));
+  // la zecimi egale, în clasament e primul cel care a făcut timpul mai devreme
+  const rk = G.ranking([...h, att({ms: 44120, ts: NOW})], "KQ", "all", NOW);
+  assert.deepStrictEqual(rk.map(r => r.a.pid), ["ion", "ana"]);
+  // Fulger la Rege + Damă (25 s): 0:24.9 da, 0:25.0 nu
+  const f = ms => notes(G.starsForAttempt(att({ms, mode: "KQ"}), [att({ms: 60000, ts: NOW - 9000})])).includes("Fulger");
+  assert.strictEqual(f(24999), true);
+  assert.strictEqual(f(25040), false);
+});
+test("întrecerea: la total egal (la zecimi) câștigă cel cu mai puține mutări", () => {
+  const e = (pid, total, moves, ts) => ({pid, sid: pid, name: pid, ok: true, total, times: [total], moves, ts});
+  const C = {entries: [e("a", 60150, [10, 10, 10], 1), e("b", 60110, [9, 10, 10], 2), e("c", 59990, [20, 20, 20], 3)]};
+  assert.deepStrictEqual(G.contestRanking(C).map(x => x.pid), ["c", "b", "a"]);
+});

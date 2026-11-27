@@ -111,13 +111,28 @@ test("tipurile scoase rămân doar pentru numele din istoric", () => {
   assert.ok(!S.MODES.some(m => ["KRB", "KRN", "KQB", "KQN"].includes(m.id)));
   assert.strictEqual(S.modeById("KRB").label, "Rege + Turn + Nebun");
 });
-test("Nebun + Cal: apărarea fuge de colțul bun", () => {
-  // nebunul alb pe câmp alb (f1) → colțurile bune sunt h1 și a8
-  const b = board({b2: "bK", e4: "wK", f1: "wB", c4: "wN"});
+test("Nebun + Cal: colțurile bune sunt cele de culoarea nebunului", () => {
+  const b = board({b2: "bK", e4: "wK", f1: "wB", c4: "wN"}); // nebunul pe câmp alb → h1 și a8
   assert.deepStrictEqual(S.goodCorners(b, "w").sort((x, y) => x - y), [sq("h1"), sq("a8")].sort((x, y) => x - y));
-  const m = S.defenderMove(b, "b", null);
-  const toA1 = S.cheb(m.to, sq("a1")), fromA1 = S.cheb(sq("b2"), sq("a1"));
-  assert.ok(toA1 <= fromA1 || [sq("a1"), sq("b1"), sq("a2"), sq("c1"), sq("a3"), sq("c2")].includes(m.to), "rămâne lângă colțul greșit a1");
+});
+test("Nebun + Cal: regele nu intră singur în matul în 2 (poziția din filmul din 27.11.2026)", () => {
+  // negrul: Ra3, Nc4, Cc5; regele alb pe b1. Ra1?? Cb3+ Rb1 Nd3#
+  const b = board({b1: "wK", a3: "bK", c4: "bB", c5: "bN"});
+  assert.ok(S.forcedMate(S.applyM(b, {from: sq("b1"), to: sq("a1")}), "b", 2));
+  for (let i = 0; i < 30; i++) {
+    const m = S.defenderMove(b, "w");
+    assert.notStrictEqual(m.to, sq("a1"));
+    assert.ok(!S.forcedMate(S.applyM(b, m), "b", 3));
+  }
+});
+test("Nebun + Cal: regele stă în centru cât poate, pe margine fuge spre colțul greșit", () => {
+  const b = board({d2: "wK", c5: "bK", a2: "bB", a6: "bN"}); // începutul filmului
+  for (let i = 0; i < 30; i++) assert.ok(S.edgeDist(S.defenderMove(b, "w").to) >= 2, "pleacă de la margine");
+  // regele alb închis pe rândul 1 (Rd3 al negrului ține rândul 2): merge spre a1, nu spre h1
+  const e = board({d1: "wK", d3: "bK", f5: "bB", h4: "bN"});
+  assert.ok(!S.inCheck(e, "w"));
+  const to = S.defenderMove(e, "w", null).to;
+  assert.ok(S.F(to) <= 3, "spre colțul greșit a1: " + to);
 });
 test("experimentul cu 2 cai: pat și matul doar dacă regele greșește", () => {
   const pat = board({a8: "bK", c7: "wK", c6: "wN", d5: "wN"});

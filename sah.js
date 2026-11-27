@@ -96,6 +96,19 @@
     return null;
   }
 
+  /* atacantul A (la mutare) dă mat forțat în cel mult n mutări? Dacă regele poate lua o piesă, nu e mat. */
+  function forcedMate(b, A, n) {
+    const D = opp(A);
+    for (const m of legal(b, A)) {
+      const nb = applyM(b, m), rs = legal(nb, D);
+      if (rs.length === 0) { if (inCheck(nb, D)) return true; continue; }
+      if (n === 1 || rs.some(r => r.cap)) continue;
+      if (rs.every(r => forcedMate(applyM(nb, r), A, n - 1))) return true;
+    }
+    return false;
+  }
+  const edgeDist = s => Math.min(F(s), 7 - F(s), R(s), 7 - R(s));
+
   function mulberry32(a) {
     return function () {
       a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -155,10 +168,17 @@
       let sc;
       if (opts.ajuta) sc = -center * 2 + (rng ? rng() * 1.5 : 0); // merge spre colț
       else {
-        const pen = mateIn1(nb, A) ? -1000 : 0;
         const threat = hanging(nb, A).length ? 6 : 0;
-        const corner = gc.length ? 5 * Math.min(...gc.map(c => cheb(m.to, c))) : 0;
         const away = frozen ? 2 * Math.min(cheb(m.to, ak), 4) : 0;
+        let pen = mateIn1(nb, A) ? -1000 : 0, corner = 0;
+        if (gc.length) {
+          /* Nebun + Cal (27.11.2026): 1) nu intră în mat forțat în 2 mutări (lângă margine nici în 3);
+             2) stă în centru cât poate – colțul bun pentru el contează doar lângă margine;
+             3) lângă colț stă alături de el, nu intră singur în colț */
+          const d = edgeDist(m.to);
+          if (!pen) pen = forcedMate(nb, A, 2) ? -900 : d <= 1 && forcedMate(nb, A, 3) ? -800 : 0;
+          corner = 8 * d + 2 * Math.min(...gc.map(c => cheb(m.to, c))) + (CORNERS.includes(m.to) ? -6 : 0);
+        }
         sc = cage(nb, D).size * 3 + center + threat + pen + corner + away + (rng ? rng() * 1.5 : 0);
       }
       if (sc > bs) { bs = sc; best = m; }
@@ -166,7 +186,7 @@
     return best || ms[0];
   }
 
-  const api = {MODES, OLD_MODES, CORNERS, F, R, opp, cheb, attacksFrom, attacked, kingSq, inCheck, applyM, legal, isMate, mateIn1, posKey, cage, hanging,
+  const api = {MODES, OLD_MODES, CORNERS, F, R, opp, cheb, attacksFrom, attacked, kingSq, inCheck, applyM, legal, isMate, mateIn1, forcedMate, edgeDist, posKey, cage, hanging,
     goodCorners, onEdge, mulberry32, genPosition, defenderMove,
     modeById: id => MODES.find(m => m.id === id) || OLD_MODES.find(m => m.id === id)};
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.Sah = api;

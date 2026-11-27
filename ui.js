@@ -1,7 +1,7 @@
 /* Mat la viteză – ecranele. Modul „cerc” (cu Liga Stelelor) sau „acasă” (telefon, fără Ligă). */
 (function () {
   const {MODES, modeById, opp, legal, applyM, inCheck, cage, hanging, genPosition, defenderMove, F, R, kingSq, cheb, onEdge, goodCorners, mateIn1} = Sah;
-  const {fmt, sameDay, ranking, starsForAttempt, contestRanking, contestAwards, weeklyProgress, weekStart} = Reguli;
+  const {fmt, zec, maiBun, sameDay, ranking, starsForAttempt, contestRanking, contestAwards, weeklyProgress, weekStart} = Reguli;
   const {sfx, confetti, stopConfetti, flash, flyStars, GOLD} = Efecte;
   const KEY = "matLaViteza.v1";
   const NAME = {K: "regele", Q: "dama", R: "turnul", B: "nebunul", N: "calul"};
@@ -396,7 +396,9 @@
     const game = G;
     setTimeout(() => {
       if (G !== game || G.over) return;
+      const t1 = performance.now();
       const d = defenderMove(G.b, G.D, G.rng, {ajuta: G.kind === "experiment" && G.part === 2});
+      G.t0 += performance.now() - t1; // cât „se gândește” regele nu intră în timpul copilului
       const capEl = d.cap ? $(`.pc[data-id="${d.cap.id}"]`) : null;
       G.b = applyM(G.b, d); G.last = d; G.busy = false;
       if (capEl) { capEl.classList.add("boom"); setTimeout(() => capEl.remove(), 950); }
@@ -409,7 +411,7 @@
 
   /* ---------- rezultate ---------- */
   const practice = () => db.attempts.filter(a => a.kind !== "intrecere");
-  function bestClean(mode, f) { return practice().filter(a => a.mode === mode && a.ok && !a.hints && f(a)).sort((x, y) => x.ms - y.ms)[0] || null; }
+  function bestClean(mode, f) { return practice().filter(a => a.mode === mode && a.ok && !a.hints && f(a)).sort(maiBun)[0] || null; }
   function recordFor(mode, group) { return bestClean(mode, a => MOD !== "cerc" || a.group === group); }
   const numsHTML = (ms, moves, lblT = "timp") => `<div class="nums"><div><b>${fmt(ms)}</b>${lblT}</div><div><b>${moves}</b>mutări</div></div>`;
 
@@ -434,13 +436,17 @@
     if (result !== "mat") return failModal(result, cap, numsHTML(ms, G.moves), btns, 900);
 
     let ribbon = "", crown = "";
-    if (!att.hints && (!prevRec || ms < prevRec.ms)) {
+    if (!att.hints && (!prevRec || zec(ms) < zec(prevRec.ms))) {
       crown = `<div class="crown">👑</div>`;
       ribbon = !prevRec ? `<div class="ribbon">👑 PRIMUL RECORD!<small>${G.mode.label}${MOD === "cerc" ? " · " + esc(groupName(p.group) || "") : ""}</small></div>`
         : prevRec.pid === p.pid ? `<div class="ribbon">👑 RECORD NOU!<small>Ți-ai bătut propriul record (${fmt(prevRec.ms)})</small></div>`
         : `<div class="ribbon">👑 RECORD NOU!<small>L-ai întrecut pe ${esc(prevRec.name)} ${prevRec.avatar} (${fmt(prevRec.ms)})</small></div>`;
       setTimeout(() => { sfx.record(); flash("gold"); confetti(220, GOLD); }, 700);
-    } else if (!att.hints && prevPB && ms < prevPB.ms) ribbon = `<div class="ribbon pb">⭐ Record personal!<small>Înainte: ${fmt(prevPB.ms)}</small></div>`;
+    } else if (!att.hints && prevRec && zec(ms) === zec(prevRec.ms)) {
+      ribbon = prevRec.pid === p.pid ? `<div class="ribbon pb">🤝 Ai egalat recordul!<small>Același timp ca înainte: ${fmt(prevRec.ms)}</small></div>`
+        : `<div class="ribbon pb">🤝 Ai egalat recordul${MOD === "cerc" ? " grupei" : ""}!<small>Recordul rămâne al lui ${esc(prevRec.name)} ${prevRec.avatar}, care l-a făcut primul</small></div>`;
+    } else if (!att.hints && prevPB && zec(ms) < zec(prevPB.ms)) ribbon = `<div class="ribbon pb">⭐ Record personal!<small>Înainte: ${fmt(prevPB.ms)}</small></div>`;
+    else if (!att.hints && prevPB && zec(ms) === zec(prevPB.ms)) ribbon = `<div class="ribbon pb">🤝 Ți-ai egalat recordul personal<small>${fmt(prevPB.ms)}</small></div>`;
 
     let starsHTML = "", star = null;
     if (MOD === "cerc") {

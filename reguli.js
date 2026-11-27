@@ -12,6 +12,10 @@
   const fmt = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${Math.floor(ms / 100) % 10}`;
   const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
   const clean = a => a.ok && !a.hints;
+  /* 27.11.2026: timpii se compară la zecimi de secundă, cum se văd pe ecran (0:44.1).
+     La zecimi egale e mai sus cel care a făcut timpul primul. */
+  const zec = ms => Math.floor(ms / 100);
+  const maiBun = (x, y) => zec(x.ms) - zec(y.ms) || x.ts - y.ts;
   function weekStart(now) {
     const d = new Date(now); d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // luni
@@ -24,12 +28,12 @@
     for (const a of attempts) {
       if (a.mode !== mode || (scope === "today" && !sameDay(a.ts, now))) continue;
       const r = by.get(a.pid) || {a: null, tries: 0}; r.tries++;
-      if (a.ok && (!r.a || a.ms < r.a.ms)) r.a = a;
+      if (a.ok && (!r.a || maiBun(a, r.a) < 0)) r.a = a;
       by.set(a.pid, r);
     }
-    return [...by.values()].filter(r => r.a).sort((x, y) => x.a.ms - y.a.ms);
+    return [...by.values()].filter(r => r.a).sort((x, y) => maiBun(x.a, y.a));
   }
-  function best(attempts, f) { return attempts.filter(f).sort((x, y) => x.ms - y.ms)[0] || null; }
+  function best(attempts, f) { return attempts.filter(f).sort(maiBun)[0] || null; }
 
   /* stelele pentru o încercare de antrenament; history = încercările anterioare */
   function starsForAttempt(att, history) {
@@ -43,19 +47,21 @@
       if (mineMode.some(a => a.ok && a.hints)) give(`Primul mat fără indicii – ${L}`);
     }
     const rec = best(history, a => clean(a) && a.mode === att.mode && a.group === att.group);
-    if (rec && att.ms < rec.ms) give(`Record nou al grupei – ${L}, ${fmt(att.ms)}`);
+    if (rec && zec(att.ms) < zec(rec.ms)) give(`Record nou al grupei – ${L}, ${fmt(att.ms)}`);
     let streak = 0;
     for (const a of [...mine, att].sort((x, y) => x.ts - y.ts).reverse()) { if (!clean(a)) break; streak++; }
     if (streak % 5 === 0) give(`Serie de 5 maturi – ${streak} la rând`);
-    if (att.ms < PRAG[att.mode] && !mineMode.some(hadFulger)) give(`Fulger – ${L}, ${fmt(att.ms)}`, 1, "fulger");
+    if (zec(att.ms) < PRAG[att.mode] / 100 && !mineMode.some(hadFulger)) give(`Fulger – ${L}, ${fmt(att.ms)}`, 1, "fulger");
     return out;
   }
 
   /* întrecerea: cel mai bun total reușit al fiecărui copil */
   function contestRanking(contest) {
     const by = new Map();
-    for (const e of contest.entries) if (e.ok && (!by.has(e.pid) || e.total < by.get(e.pid).total)) by.set(e.pid, e);
-    return [...by.values()].sort((x, y) => x.total - y.total);
+    const mut = e => e.moves.reduce((s, x) => s + x, 0);
+    const cmp = (x, y) => zec(x.total) - zec(y.total) || mut(x) - mut(y) || x.ts - y.ts; // la total egal: mai puține mutări, apoi primul
+    for (const e of contest.entries) if (e.ok && (!by.has(e.pid) || cmp(e, by.get(e.pid)) < 0)) by.set(e.pid, e);
+    return [...by.values()].sort(cmp);
   }
   function contestAwards(contest) {
     if (!contest.open) return [];
@@ -72,7 +78,7 @@
       for (const mode of Object.keys(PRAG)) {
         const old = best(pool, a => a.pid === pid && a.mode === mode && a.ts < ws);
         const neu = best(pool, a => a.pid === pid && a.mode === mode && a.ts >= ws && a.ts <= now);
-        if (!old || !neu || neu.ms >= old.ms) continue;
+        if (!old || !neu || zec(neu.ms) >= zec(old.ms)) continue;
         const pct = (old.ms - neu.ms) / old.ms;
         if (!res.has(pid) || pct > res.get(pid).pct) res.set(pid, {pid, sid: neu.sid, name: neu.name, avatar: neu.avatar, color: neu.color, mode, pct, inainte: old.ms, acum: neu.ms});
       }
@@ -80,6 +86,6 @@
     return [...res.values()].sort((x, y) => y.pct - x.pct);
   }
 
-  const api = {PRAG, CONTEST_STARS, fmt, sameDay, weekStart, ranking, starsForAttempt, contestRanking, contestAwards, weeklyProgress};
+  const api = {PRAG, CONTEST_STARS, fmt, zec, maiBun, sameDay, weekStart, ranking, starsForAttempt, contestRanking, contestAwards, weeklyProgress};
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.Reguli = api;
 })(this);

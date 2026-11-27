@@ -56,8 +56,8 @@
       r.tries++; r.last = Math.max(r.last, a.ts);
       if (a.ok) {
         r.mats++;
-        if (!a.hints && (!r.best || a.ms < r.best.ms)) r.best = a;
-        if (a.hints && (!r.bestH || a.ms < r.bestH.ms)) r.bestH = a;
+        if (!a.hints && (!r.best || Reguli.maiBun(a, r.best) < 0)) r.best = a;
+        if (a.hints && (!r.bestH || Reguli.maiBun(a, r.bestH) < 0)) r.bestH = a;
       }
       by.set(k, r);
     }
