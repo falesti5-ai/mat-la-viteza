@@ -664,8 +664,9 @@
         <div class="lbtop" style="margin-top:14px"><span class="sp"></span>${given ? `<span class="note">✅ Steaua săptămânii a fost dată: ${esc(given.name)}</span>`
           : `<button class="award" data-act="prog" ${prog.length ? "" : "disabled"}>⭐ +1 pentru ${prog.length ? esc(prog[0].name) : "…"}</button>`}</div></div>`;
     }
-    html += `<div class="card"><h2>💾 Păstrarea rezultatelor</h2>
-      ${MOD === "cerc" ? `<p class="note">Copia de rezervă din Liga Stelelor (⚙️ Setări → 💾 Date) păstrează acum și rezultatele de aici: toate încercările, timpii, recordurile și întrecerile. Puteți salva aceeași copie și de aici.</p>${backupHTML(false)}` : ""}
+    /* păstrarea datelor: doar la cerc (cu Liga Stelelor), nu și pe site/telefon */
+    if (MOD === "cerc") html += `<div class="card"><h2>💾 Păstrarea rezultatelor</h2>
+      <p class="note">Copia de rezervă din Liga Stelelor (⚙️ Setări → 💾 Date) păstrează acum și rezultatele de aici: toate încercările, timpii, recordurile și întrecerile. Puteți salva aceeași copie și de aici.</p>${backupHTML(false)}
       <div class="lbtop" style="margin:12px 0 0"><span class="note" style="margin:0">Tabel cu recordurile fiecărui copil și rezultatele întrecerilor, de deschis în Excel.</span><span class="sp"></span>
         <button class="small" data-act="csv">📊 Recordurile în Excel</button></div></div>`;
     $("#lb").innerHTML = html + "</div>";
